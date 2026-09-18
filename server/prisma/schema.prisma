@@ -1,0 +1,261 @@
+// Prisma Schema for Intern Management System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("ADMIN") // ADMIN, TEAM_LEAD, INTERN
+  avatar    String?
+  internId  String?  // Optional link to Intern record if role is INTERN
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model Team {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  leadName    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  interns     Intern[]
+}
+
+model Project {
+  id               String   @id @default(uuid())
+  name             String   @unique
+  description      String?
+  projectLead      String
+  status           String   @default("Active") // Active, Completed, Paused
+  targetCompletion Int      @default(100)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  interns Intern[]
+  tasks   Task[]
+  alerts  Alert[]
+}
+
+model Intern {
+  id            String   @id @default(uuid())
+  internId      String   @unique // e.g. INT-1001
+  name          String
+  email         String   @unique
+  phone         String?
+  module        String?
+  status        String   @default("Working") // Working, Blocked, No Task, Waiting Review, Completed
+  joiningDate   DateTime @default(now())
+  lastUpdated   DateTime @default(now())
+  remarks       String?
+  
+  // Performance indicators (1-5 scale)
+  learningSpeed    Int    @default(3)
+  technicalAbility Int    @default(3)
+  ownership        Int    @default(3)
+  workQuality      Int    @default(3)
+  consistency      Int    @default(3)
+  communication    Int    @default(3)
+  problemSolving   Int    @default(3)
+  
+  // Fast Learner signal evidence
+  learningEvidence String?
+
+  // Full-Time Potential
+  ftPotential String @default("Needs Observation") // Strong Potential, Potential, Needs Observation, Not Recommended
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  tasks              Task[]
+  dailyUpdates       DailyUpdate[]
+  blockers           Blocker[]
+  performanceReviews PerformanceReview[]
+  ftEvaluations      FTEvaluation[]
+  whatsappMessages   WhatsAppMessage[]
+  alerts             Alert[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model Task {
+  id            String    @id @default(uuid())
+  taskId        String    @unique // e.g. TSK-201
+  description   String
+  module        String?
+  status        String    @default("Not Started") // Not Started, Working, Blocked, Waiting Review, Completed, Cancelled
+  progress      Int       @default(0) // 0-100%
+  priority      String    @default("Medium") // Low, Medium, High, Urgent
+  startDate     DateTime  @default(now())
+  deadline      DateTime?
+  completedDate DateTime?
+  reviewer      String?
+  notes         String?
+
+  internId String
+  intern   Intern @relation(fields: [internId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  blockers Blocker[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DailyUpdate {
+  id             String   @id @default(uuid())
+  date           DateTime @default(now())
+  todayTask      String
+  completedToday String?
+  pending        String?
+  blocker        String?
+  tomorrowTask   String?
+  notes          String?
+
+  internId String
+  intern   Intern @relation(fields: [internId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Blocker {
+  id           String    @id @default(uuid())
+  description  String
+  reportedDate DateTime  @default(now())
+  daysBlocked  Int       @default(1)
+  assignedTo   String?
+  status       String    @default("Open") // Open, Resolved
+  resolvedDate DateTime?
+
+  internId String
+  intern   Intern @relation(fields: [internId], references: [id], onDelete: Cascade)
+
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PerformanceReview {
+  id               String   @id @default(uuid())
+  reviewDate       DateTime @default(now())
+  weekNumber       Int      @default(1)
+  learningSpeed    Int      @default(3)
+  technicalAbility Int      @default(3)
+  ownership        Int      @default(3)
+  workQuality      Int      @default(3)
+  consistency      Int      @default(3)
+  communication    Int      @default(3)
+  problemSolving   Int      @default(3)
+  evidenceNotes    String?
+  reviewedBy       String?  @default("Admin")
+
+  internId String
+  intern   Intern @relation(fields: [internId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FTEvaluation {
+  id             String   @id @default(uuid())
+  potentialLevel String   // Strong Potential, Potential, Needs Observation, Not Recommended
+  evidence       String
+  evaluationNotes String?
+  evaluatedBy    String   @default("Admin")
+  evaluationDate DateTime @default(now())
+
+  internId String
+  intern   Intern @relation(fields: [internId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GoogleSheetConfig {
+  id            String   @id @default("default")
+  spreadsheetId String?
+  sheetName     String?  @default("Sheet1")
+  columnMapping String   @default("{}") // JSON string of mapping: Google Sheet Col -> App Field
+  autoSync      Boolean  @default(false)
+  lastSyncAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model SyncLog {
+  id            String   @id @default(uuid())
+  timestamp     DateTime @default(now())
+  source        String   @default("Google Sheets") // Google Sheets, WhatsApp, Manual
+  status        String   @default("Success") // Success, Warning, Error
+  importedCount Int      @default(0)
+  updatedCount  Int      @default(0)
+  skippedCount  Int      @default(0)
+  errorLog      String?
+}
+
+model WhatsAppMessage {
+  id             String   @id @default(uuid())
+  senderPhone    String
+  senderName     String?
+  rawMessage     String
+  extractedTask  String?
+  extractedStatus String?
+  extractedProgress Int?
+  extractedBlocker String?
+  confidence     Float    @default(0.8)
+  parserType     String   @default("RuleBasedParser") // RuleBasedParser, LLMParser
+  approvalStatus String   @default("Pending") // Pending, Approved, Rejected
+  receivedAt     DateTime @default(now())
+
+  internId String?
+  intern   Intern? @relation(fields: [internId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  entity    String   // Intern, Project, Task, FTEvaluation, etc.
+  entityId  String
+  action    String   // CREATE, UPDATE, DELETE
+  changedBy String   @default("Admin")
+  oldValue  String?  // JSON string
+  newValue  String?  // JSON string
+  timestamp DateTime @default(now())
+}
+
+model Alert {
+  id              String   @id @default(uuid())
+  type            String   // IDLE, BLOCKED, OVERDUE, NO_UPDATE
+  title           String
+  description     String
+  severity        String   @default("warning") // info, warning, critical
+  isAcknowledged  Boolean  @default(false)
+
+  internId String?
+  intern   Intern? @relation(fields: [internId], references: [id], onDelete: Cascade)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

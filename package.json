@@ -1,0 +1,24 @@
+{
+  "name": "intern-management-system",
+  "version": "1.0.0",
+  "description": "Internal dashboard for managing 40+ interns across projects with task tracking, idle detection, blocker monitoring, performance reviews, Google Sheets sync, and WhatsApp integration.",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build:server": "npm run build --prefix server",
+    "build:client": "npm run build --prefix client",
+    "build": "npm run build:server && npm run build:client",
+    "seed": "npm run seed --prefix server",
+    "test": "npm run test --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
