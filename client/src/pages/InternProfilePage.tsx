@@ -6,32 +6,24 @@ export const InternProfilePage: React.FC = () => {
   const { currentUser, updateCurrentUser, showToast } = useApp();
 
   // Fixed fields (from registration)
-  const fixedName = currentUser.name || 'Rahul Kumar';
-  const fixedEmail = currentUser.email || 'rahul.kumar@company.com';
+  const fixedName = currentUser.name || '';
+  const fixedEmail = currentUser.email || '';
 
   // Editable fields
   const [avatar, setAvatar] = useState(
-    currentUser.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'
+    currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
   );
-  const [phone, setPhone] = useState('+91 98765 43210');
-  const [githubUrl, setGithubUrl] = useState('https://github.com/rahulkumar');
-  const [linkedinUrl, setLinkedinUrl] = useState('https://linkedin.com/in/rahulkumar');
-  const [bio, setBio] = useState(
-    'Passionate Full-Stack Intern working on Email Automation Engine & Node.js backend integrations.'
-  );
+  const [phone, setPhone] = useState('');
+  const [githubUrl, setGithubUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [bio, setBio] = useState('');
 
   // Resume Document State
-  const [resumeFileName, setResumeFileName] = useState('Rahul_Kumar_Resume_2026.pdf');
-  const [resumeUrl, setResumeUrl] = useState('https://example.com/resumes/rahulkumar.pdf');
+  const [resumeFileName, setResumeFileName] = useState('');
+  const [resumeUrl, setResumeUrl] = useState('');
 
   // Primary Skills Tag State
-  const [skills, setSkills] = useState<string[]>([
-    'React & TS',
-    'Node.js',
-    'FastAPI',
-    'PostgreSQL',
-    'Python',
-  ]);
+  const [skills, setSkills] = useState<string[]>([]);
   const [newSkillInput, setNewSkillInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 

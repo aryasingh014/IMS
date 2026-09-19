@@ -21,13 +21,13 @@ export const ROLE_CREDENTIALS: Record<UserRole, { email: string; password: strin
     defaultAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
   },
   TEAM_LEAD: {
-    email: 'vikram.malhotra@company.com',
+    email: 'lead@company.com',
     password: 'leadpassword123',
-    title: 'AI Core & Automation Lead',
+    title: 'Engineering Team Lead',
     defaultAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
   },
   INTERN: {
-    email: 'rahul.kumar@company.com',
+    email: 'intern@company.com',
     password: 'internpassword123',
     title: 'Software Engineer Intern',
     defaultAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
@@ -36,21 +36,21 @@ export const ROLE_CREDENTIALS: Record<UserRole, { email: string; password: strin
 
 export const MOCK_USERS: Record<UserRole, RoleUser> = {
   ADMIN: {
-    name: 'Arya Singh (Admin)',
+    name: 'Arya Singh',
     email: ROLE_CREDENTIALS.ADMIN.email,
     role: 'ADMIN',
     title: ROLE_CREDENTIALS.ADMIN.title,
     avatar: ROLE_CREDENTIALS.ADMIN.defaultAvatar,
   },
   TEAM_LEAD: {
-    name: 'Vikram Malhotra',
+    name: 'Team Lead',
     email: ROLE_CREDENTIALS.TEAM_LEAD.email,
     role: 'TEAM_LEAD',
     title: ROLE_CREDENTIALS.TEAM_LEAD.title,
     avatar: ROLE_CREDENTIALS.TEAM_LEAD.defaultAvatar,
   },
   INTERN: {
-    name: 'Rahul Kumar',
+    name: 'Engineering Intern',
     email: ROLE_CREDENTIALS.INTERN.email,
     role: 'INTERN',
     title: ROLE_CREDENTIALS.INTERN.title,

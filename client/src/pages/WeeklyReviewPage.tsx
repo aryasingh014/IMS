@@ -30,54 +30,60 @@ export const WeeklyReviewPage: React.FC = () => {
 
   const displayedReviews = reviews;
 
-  const myPerformance = displayedReviews[0] || {
-    name: currentUser.name || 'Intern',
-    projectName: currentUser.title || 'Assigned Project',
-    learningSpeed: 5,
-    technicalAbility: 5,
-    ownership: 5,
-    workQuality: 5,
-    consistency: 5,
-    communication: 5,
-    problemSolving: 5,
-    ftPotential: 'HIGH',
-    learningEvidence: 'Demonstrated stellar technical capability by completing assigned tasks independently and delivering quality code ahead of schedule.',
-  };
-
-  const metrics = [
-    { label: 'Learning Speed', score: myPerformance.learningSpeed || 5, max: 5 },
-    { label: 'Technical Ability', score: myPerformance.technicalAbility || 5, max: 5 },
-    { label: 'Ownership & Initiative', score: myPerformance.ownership || 5, max: 5 },
-    { label: 'Work Quality', score: myPerformance.workQuality || 5, max: 5 },
-    { label: 'Consistency & Reliability', score: myPerformance.consistency || 5, max: 5 },
-    { label: 'Communication', score: myPerformance.communication || 5, max: 5 },
-    { label: 'Problem Solving', score: myPerformance.problemSolving || 5, max: 5 },
-  ];
-
-  const overallAvg = (metrics.reduce((acc, m) => acc + m.score, 0) / metrics.length).toFixed(1);
-
   if (currentRole === 'INTERN') {
+    const myPerformance = displayedReviews[0];
+
+    if (!myPerformance) {
+      return (
+        <div className="space-y-6 pb-10">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">My Weekly Performance Scorecard</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Your 7-axis evaluation scores from your team lead.</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400 space-y-2">
+            <Award className="w-8 h-8 mx-auto text-slate-300" />
+            <p className="text-xs font-semibold text-slate-700">No performance review submitted yet</p>
+            <p className="text-xs text-slate-500">Your weekly scorecard will appear here once reviewed by your team lead.</p>
+          </div>
+        </div>
+      );
+    }
+
+    const metrics = [
+      { label: 'Learning Speed', score: myPerformance.learningSpeed || 3, max: 5 },
+      { label: 'Technical Ability', score: myPerformance.technicalAbility || 3, max: 5 },
+      { label: 'Ownership & Initiative', score: myPerformance.ownership || 3, max: 5 },
+      { label: 'Work Quality', score: myPerformance.workQuality || 3, max: 5 },
+      { label: 'Consistency & Reliability', score: myPerformance.consistency || 3, max: 5 },
+      { label: 'Communication', score: myPerformance.communication || 3, max: 5 },
+      { label: 'Problem Solving', score: myPerformance.problemSolving || 3, max: 5 },
+    ];
+
+    const overallAvg = (metrics.reduce((acc, m) => acc + m.score, 0) / metrics.length).toFixed(1);
+
     return (
       <div className="space-y-6 pb-10">
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">My Weekly Performance Scorecard</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Your individual 7-axis evaluation ratings reviewed by Squad Lead Vikram Malhotra.
+            Your individual 7-axis evaluation ratings reviewed by your Team Lead.
           </p>
         </div>
 
-        {/* Overview Banner Card */}
-        <div className="bg-gradient-to-r from-sky-600 to-indigo-600 text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Top Highlight Summary */}
+        <div className="bg-gradient-to-r from-sky-600 to-indigo-600 rounded-2xl p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center font-bold text-xl text-white">
-              {myPerformance.name?.charAt(0)}
-            </div>
+            <img
+              src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+              alt={currentUser.name}
+              className="w-16 h-16 rounded-2xl border-2 border-white/40 shadow-sm object-cover"
+            />
             <div>
               <span className="bg-white/20 text-white font-bold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                Software Engineer Intern
+                {currentUser.title || 'Engineering Intern'}
               </span>
-              <h3 className="text-2xl font-bold text-white mt-1">{myPerformance.name}</h3>
-              <p className="text-xs text-sky-100">Project: <span className="font-semibold text-white">{myPerformance.projectName}</span></p>
+              <h3 className="text-2xl font-bold text-white mt-1">{myPerformance.name || currentUser.name}</h3>
+              <p className="text-xs text-sky-100">Project: <span className="font-semibold text-white">{myPerformance.projectName || 'Assigned Project'}</span></p>
             </div>
           </div>
 
@@ -89,7 +95,7 @@ export const WeeklyReviewPage: React.FC = () => {
               <span className="text-xs font-normal text-sky-200">/ 5.0</span>
             </div>
             <span className="inline-block bg-emerald-400/30 text-emerald-100 text-[10px] px-2.5 py-0.5 rounded font-bold uppercase tracking-wider">
-              FAST LEARNER & TOP PERFORMER
+              {Number(overallAvg) >= 4 ? 'TOP PERFORMER' : 'ACTIVE INTERN'}
             </span>
           </div>
         </div>
@@ -124,33 +130,17 @@ export const WeeklyReviewPage: React.FC = () => {
           </div>
         </div>
 
-        {/* FTE Evaluation Status & Lead Review Notes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="bg-purple-50/60 border border-purple-200 rounded-2xl p-5 space-y-3">
-            <div className="flex items-center gap-2 text-purple-900 font-bold text-xs">
-              <Award className="w-5 h-5 text-purple-600" /> FTE Conversion Potential Status
-            </div>
-            <div className="bg-white border border-purple-200 p-4 rounded-xl space-y-1">
-              <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded uppercase">
-                Status: Highly Recommended
-              </span>
-              <p className="text-xs font-bold text-slate-900 mt-2">Full-Time Software Engineer Track</p>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Consistently delivers high-quality production features, manages ticket state proactively, and communicates dependencies clearly.
-              </p>
-            </div>
-          </div>
-
+        {/* Lead Review Notes */}
+        {myPerformance.learningEvidence && (
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
             <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
               <CheckCircle2 className="w-5 h-5 text-emerald-600" /> Lead Review Notes & Feedback
             </div>
-            <div className="bg-white border border-slate-200 p-4 rounded-xl text-xs text-slate-700 space-y-2">
-              <p className="font-semibold text-slate-900">Evaluated by: Vikram Malhotra (Squad Lead)</p>
-              <p className="text-slate-600 italic">"{myPerformance.learningEvidence || 'Demonstrated outstanding ownership on FastAPI integration and unit testing modules.'}"</p>
+            <div className="bg-white border border-slate-200 p-4 rounded-xl text-xs text-slate-700">
+              <p className="text-slate-600 italic">"{myPerformance.learningEvidence}"</p>
             </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -161,54 +151,60 @@ export const WeeklyReviewPage: React.FC = () => {
       <div>
         <h2 className="text-xl font-bold text-slate-900 tracking-tight">Weekly Performance Matrix</h2>
         <p className="text-xs text-slate-500 mt-0.5">
-          7-axis evaluation scores (Learning Speed, Technical Ability, Ownership, Work Quality, Consistency, Communication, Problem Solving).
+          7-axis evaluation scores across your squad interns.
         </p>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs overflow-x-auto">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px]">
-            <tr>
-              <th className="p-4">Intern</th>
-              <th className="p-4">Learning Speed</th>
-              <th className="p-4">Technical Ability</th>
-              <th className="p-4">Ownership</th>
-              <th className="p-4">Consistency</th>
-              <th className="p-4">Overall Score</th>
-              <th className="p-4">Category</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {displayedReviews.map((rev) => (
-              <tr key={rev.id} className="hover:bg-slate-50">
-                <td className="p-4">
-                  <p className="font-bold text-slate-900">{rev.name}</p>
-                  <p className="text-[10px] text-slate-500">{rev.projectName || 'GLC AI Lead Intelligence'}</p>
-                </td>
-                <td className="p-4 font-bold text-slate-800">{rev.learningSpeed}/5</td>
-                <td className="p-4 font-bold text-slate-800">{rev.technicalAbility}/5</td>
-                <td className="p-4 font-bold text-slate-800">{rev.ownership}/5</td>
-                <td className="p-4 font-bold text-slate-800">{rev.consistency}/5</td>
-                <td className="p-4">
-                  <span className="font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200">
-                    {Math.round((rev.learningSpeed + rev.technicalAbility + rev.ownership + rev.consistency) / 4 * 10) / 10}/5.0
-                  </span>
-                </td>
-                <td className="p-4">
-                  <span
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded border ${
-                      rev.learningSpeed >= 4
-                        ? 'bg-purple-50 text-purple-700 border-purple-200'
-                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    }`}
-                  >
-                    {rev.learningSpeed >= 4 ? 'Fast Learner' : 'Consistent'}
-                  </span>
-                </td>
+        {displayedReviews.length === 0 ? (
+          <div className="text-center p-8 text-xs text-slate-400">
+            No performance reviews recorded yet. Submit reviews through the Intern Directory.
+          </div>
+        ) : (
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px]">
+              <tr>
+                <th className="p-4">Intern</th>
+                <th className="p-4">Learning Speed</th>
+                <th className="p-4">Technical Ability</th>
+                <th className="p-4">Ownership</th>
+                <th className="p-4">Consistency</th>
+                <th className="p-4">Overall Score</th>
+                <th className="p-4">Category</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {displayedReviews.map((rev) => (
+                <tr key={rev.id} className="hover:bg-slate-50">
+                  <td className="p-4">
+                    <p className="font-bold text-slate-900">{rev.name}</p>
+                    <p className="text-[10px] text-slate-500">{rev.projectName || 'General'}</p>
+                  </td>
+                  <td className="p-4 font-bold text-slate-800">{rev.learningSpeed}/5</td>
+                  <td className="p-4 font-bold text-slate-800">{rev.technicalAbility}/5</td>
+                  <td className="p-4 font-bold text-slate-800">{rev.ownership}/5</td>
+                  <td className="p-4 font-bold text-slate-800">{rev.consistency}/5</td>
+                  <td className="p-4">
+                    <span className="font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200">
+                      {Math.round((rev.learningSpeed + rev.technicalAbility + rev.ownership + rev.consistency) / 4 * 10) / 10}/5.0
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <span
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded border ${
+                        rev.learningSpeed >= 4
+                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}
+                    >
+                      {rev.learningSpeed >= 4 ? 'Fast Learner' : 'Consistent'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

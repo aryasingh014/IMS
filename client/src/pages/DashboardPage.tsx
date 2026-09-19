@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-
 import {
   Users,
   CheckSquare,
@@ -12,6 +11,8 @@ import {
   ArrowUpRight,
   ShieldAlert,
   CheckCircle2,
+  FolderPlus,
+  UserPlus,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import {
@@ -24,15 +25,12 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
 } from 'recharts';
-
 import { api } from '../services/api';
 import { BlockerReasonModal } from '../components/modals/BlockerReasonModal';
 
 export const DashboardPage: React.FC = () => {
-  const { summaryData, isLoadingSummary, setSelectedInternId, setActiveTab, currentRole, currentUser, showToast, refreshSummary } = useApp();
+  const { summaryData, isLoadingSummary, setSelectedInternId, setActiveTab, currentRole, currentUser, showToast, refreshSummary, setIsQuickActionOpen } = useApp();
   const [isReportBlockerOpen, setIsReportBlockerOpen] = useState(false);
 
   const handleCreateBlockerFromDashboard = async (reason: string) => {
@@ -48,8 +46,6 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-
-
   if (isLoadingSummary || !summaryData) {
     return (
       <div className="flex items-center justify-center h-64 text-slate-400 text-xs">
@@ -63,11 +59,17 @@ export const DashboardPage: React.FC = () => {
 
   const { kpi, projectSummary, statusBoard, charts, recentUpdates, alerts } = summaryData;
 
+  const totalInterns = kpi.totalInterns || 0;
+  const activeRate = totalInterns > 0 ? Math.round((kpi.activeInterns / totalInterns) * 100) : 0;
+  const completedCount = charts?.taskStatusDistribution?.find((d: any) => d.name === 'Completed')?.value || 0;
+  const totalTasksCount = charts?.taskStatusDistribution?.reduce((acc: number, d: any) => acc + (d.value || 0), 0) || 0;
+  const fastLearnersRate = totalTasksCount > 0 ? Math.round((completedCount / totalTasksCount) * 100) : 0;
+
   const kpiCards = [
     {
       title: 'Total Interns',
-      value: kpi.totalInterns,
-      subtitle: 'Across 7 active projects',
+      value: totalInterns,
+      subtitle: `${kpi.projectsCount || 0} active project${kpi.projectsCount === 1 ? '' : 's'}`,
       icon: Users,
       color: 'text-sky-600',
       bg: 'bg-sky-50 border-sky-100',
@@ -75,8 +77,8 @@ export const DashboardPage: React.FC = () => {
     },
     {
       title: 'Active Working',
-      value: kpi.activeInterns,
-      subtitle: `${Math.round((kpi.activeInterns / kpi.totalInterns) * 100)}% active output`,
+      value: kpi.activeInterns || 0,
+      subtitle: `${activeRate}% active output`,
       icon: CheckSquare,
       color: 'text-emerald-600',
       bg: 'bg-emerald-50 border-emerald-100',
@@ -84,8 +86,8 @@ export const DashboardPage: React.FC = () => {
     },
     {
       title: 'Blocked Interns',
-      value: kpi.blockedInterns,
-      subtitle: 'Requires admin assistance',
+      value: kpi.blockedInterns || 0,
+      subtitle: kpi.blockedInterns > 0 ? 'Requires attention' : 'No active blockers',
       icon: AlertCircle,
       color: 'text-rose-600',
       bg: 'bg-rose-50 border-rose-100',
@@ -94,8 +96,8 @@ export const DashboardPage: React.FC = () => {
     },
     {
       title: 'No Task / Idle',
-      value: kpi.idleInterns,
-      subtitle: 'Available for ticket assignment',
+      value: kpi.idleInterns || 0,
+      subtitle: kpi.idleInterns > 0 ? 'Available for ticket assignment' : 'All interns assigned',
       icon: Clock,
       color: 'text-amber-600',
       bg: 'bg-amber-50 border-amber-100',
@@ -104,8 +106,8 @@ export const DashboardPage: React.FC = () => {
     },
     {
       title: 'FT Potential Candidates',
-      value: kpi.ftPotentialCount,
-      subtitle: 'Strong performance track record',
+      value: kpi.ftPotentialCount || 0,
+      subtitle: 'Strong performance track',
       icon: Award,
       color: 'text-purple-600',
       bg: 'bg-purple-50 border-purple-100',
@@ -113,7 +115,7 @@ export const DashboardPage: React.FC = () => {
     },
     {
       title: 'Active Projects',
-      value: kpi.projectsCount,
+      value: kpi.projectsCount || 0,
       subtitle: 'Engineering initiatives',
       icon: FolderKanban,
       color: 'text-indigo-600',
@@ -122,7 +124,7 @@ export const DashboardPage: React.FC = () => {
     },
     {
       title: 'Daily Updates Logged',
-      value: recentUpdates.length,
+      value: recentUpdates?.length || 0,
       subtitle: 'Submitted today',
       icon: Calendar,
       color: 'text-teal-600',
@@ -130,9 +132,9 @@ export const DashboardPage: React.FC = () => {
       tab: 'daily-updates',
     },
     {
-      title: 'Fast Learners Rate',
-      value: `${Math.round((charts.taskStatusDistribution.find((d: any) => d.name === 'Completed')?.value || 45) * 1.5)}%`,
-      subtitle: 'Ahead of target schedule',
+      title: 'Task Completion Rate',
+      value: `${fastLearnersRate}%`,
+      subtitle: 'Overall tasks resolved',
       icon: TrendingUp,
       color: 'text-sky-600',
       bg: 'bg-sky-50 border-sky-100',
@@ -140,7 +142,7 @@ export const DashboardPage: React.FC = () => {
     },
   ];
 
-  const PIE_COLORS = ['#f43f5e', '#10b981', '#a855f7', '#0284c7'];
+  const PIE_COLORS = ['#f43f5e', '#10b981', '#a855f7', '#0284c7', '#f59e0b'];
 
   if (currentRole === 'INTERN') {
     return (
@@ -152,75 +154,41 @@ export const DashboardPage: React.FC = () => {
               <span className="bg-white/20 text-white font-bold text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider">
                 Intern Self-Service Workspace
               </span>
-              <h2 className="text-2xl font-bold tracking-tight mt-2">Welcome back, {currentUser.name}! 👋</h2>
-              <p className="text-xs text-sky-100">Assigned Project: <span className="font-semibold text-white">GLC AI Lead Intelligence</span> • Module: Email Automation</p>
+              <h2 className="text-2xl font-bold tracking-tight mt-2">Welcome, {currentUser.name}! 👋</h2>
+              <p className="text-xs text-sky-100">
+                {currentUser.title || 'Engineering Intern'}
+              </p>
             </div>
             <div className="hidden sm:block text-right bg-white/10 p-3.5 rounded-xl border border-white/20">
-              <p className="text-[10px] font-bold text-sky-200 uppercase">Current Performance Rating</p>
-              <p className="text-xl font-bold text-white">4.8 / 5.0 ⭐</p>
-              <span className="text-[10px] bg-emerald-400/30 text-emerald-100 px-2 py-0.5 rounded font-bold">Fast Learner</span>
+              <p className="text-[10px] font-bold text-sky-200 uppercase">Track Progress</p>
+              <p className="text-xs font-semibold text-white mt-1">Submit updates & report blockers</p>
             </div>
           </div>
         </div>
 
-        {/* Active Task Card */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4 max-w-3xl">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div>
-              <span className="text-[10px] font-bold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-md border border-sky-200">
-                ACTIVE TICKET: TSK-201
-              </span>
-              <h3 className="text-base font-bold text-slate-900 mt-2">Implement FastAPI Integration & Unit Tests</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Assigned by Lead: Vikram Malhotra • Priority: High</p>
-            </div>
-            <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
-              In Progress (85%)
-            </span>
-          </div>
-
-          {/* Progress Slider */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs font-semibold text-slate-700">
-              <span>Task Progress</span>
-              <span className="text-sky-600 font-bold">85% Completed</span>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-              <div className="bg-gradient-to-r from-sky-500 to-emerald-500 h-full rounded-full" style={{ width: '85%' }} />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 pt-2">
+        {/* Quick Action Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
+            <h3 className="text-sm font-bold text-slate-900">Daily Updates Log</h3>
+            <p className="text-xs text-slate-500">Record your daily work output and tomorrow plans.</p>
             <button
               onClick={() => setActiveTab('daily-updates')}
-              className="bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-colors flex items-center gap-2"
+              className="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs py-2.5 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2"
             >
-              <CheckCircle2 className="w-4 h-4" /> Submit Daily Progress Update
-            </button>
-            <button
-              onClick={() => setActiveTab('tasks')}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2.5 rounded-xl transition-colors"
-            >
-              View All Assigned Tickets
+              <CheckCircle2 className="w-4 h-4" /> Submit Daily Update
             </button>
           </div>
-        </div>
 
-        {/* Quick Report Blocker Section */}
-        <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-5 max-w-3xl space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
-              <AlertCircle className="w-4 h-4 text-amber-600" /> Need Help or Facing a Blocker?
-            </div>
+          <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-5 shadow-xs space-y-3">
+            <h3 className="text-sm font-bold text-amber-900">Report a Blocker</h3>
+            <p className="text-xs text-amber-700">Facing credentials, setup, or technical obstacles?</p>
             <button
               onClick={() => setIsReportBlockerOpen(true)}
-              className="bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+              className="w-full bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs py-2.5 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2"
             >
-              <AlertCircle className="w-3.5 h-3.5" /> Report Blocker Now
+              <AlertCircle className="w-4 h-4" /> Report Blocker to Lead
             </button>
           </div>
-          <p className="text-xs text-amber-800">
-            If you are stuck on API credentials, environment configuration, or need guidance from your Team Lead, report a mandatory blocker explanation to notify your lead.
-          </p>
         </div>
 
         {/* Mandatory Blocker Reason Modal */}
@@ -228,21 +196,17 @@ export const DashboardPage: React.FC = () => {
           isOpen={isReportBlockerOpen}
           onClose={() => setIsReportBlockerOpen(false)}
           onSubmit={handleCreateBlockerFromDashboard}
-          taskTitle="TSK-201: Implement FastAPI Integration & Unit Tests"
+          taskTitle="Current Task / Project Obstacle"
         />
       </div>
     );
   }
 
-
-
   const scopedStatusBoard = statusBoard;
-  const displayedProjectSummary = projectSummary;
+  const displayedProjectSummary = projectSummary || [];
 
   return (
-
     <div className="space-y-6 pb-10">
-
       {/* Overview Title Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -251,11 +215,10 @@ export const DashboardPage: React.FC = () => {
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             {currentRole === 'TEAM_LEAD'
-              ? 'Real-time management overview for assigned project & squad members.'
-              : 'Real-time management overview for 40 interns across 7 engineering projects.'}
+              ? 'Real-time management overview for your squad and assigned projects.'
+              : `Real-time management overview for ${totalInterns} intern${totalInterns === 1 ? '' : 's'} across ${kpi.projectsCount || 0} engineering project${kpi.projectsCount === 1 ? '' : 's'}.`}
           </p>
         </div>
-
 
         {/* Quick Alert Counter */}
         {alerts && alerts.filter((a) => !a.isAcknowledged).length > 0 && (
@@ -277,8 +240,7 @@ export const DashboardPage: React.FC = () => {
             <div
               key={idx}
               onClick={() => setActiveTab(card.tab as any)}
-
-              className={`bg-white border border-slate-200 hover:border-sky-300 p-4 rounded-2xl cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group`}
+              className="bg-white border border-slate-200 hover:border-sky-300 p-4 rounded-2xl cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between group"
             >
               <div>
                 <div className="flex items-center justify-between">
@@ -315,7 +277,7 @@ export const DashboardPage: React.FC = () => {
           <div>
             <h3 className="text-sm font-bold text-slate-900">Intern Live Status Board</h3>
             <p className="text-xs text-slate-500">
-              Categorized real-time status distribution across all 40 interns.
+              Categorized real-time status distribution across all {totalInterns} interns.
             </p>
           </div>
           <button
@@ -336,22 +298,20 @@ export const DashboardPage: React.FC = () => {
               </span>
             </div>
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-              {scopedStatusBoard.WORKING?.slice(0, 5).map((i) => (
-                <div
-                  key={i.id}
-                  onClick={() => setSelectedInternId(i.id)}
-                  className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-emerald-300 text-xs shadow-2xs cursor-pointer transition-colors"
-                >
-                  <p className="font-semibold text-slate-900 truncate">{i.name}</p>
-                  <p className="text-[10px] text-slate-500 truncate">{i.project?.name}</p>
-                  <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
-                    <div
-                      className="bg-emerald-500 h-full rounded-full"
-                      style={{ width: `${i.tasks?.[0]?.progress || 50}%` }}
-                    />
+              {(!scopedStatusBoard.WORKING || scopedStatusBoard.WORKING.length === 0) ? (
+                <p className="text-[11px] text-slate-400 p-2 italic text-center">No interns currently working</p>
+              ) : (
+                scopedStatusBoard.WORKING.slice(0, 5).map((i) => (
+                  <div
+                    key={i.id}
+                    onClick={() => setSelectedInternId(i.id)}
+                    className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-emerald-300 text-xs shadow-2xs cursor-pointer transition-colors"
+                  >
+                    <p className="font-semibold text-slate-900 truncate">{i.name}</p>
+                    <p className="text-[10px] text-slate-500 truncate">{i.project?.name || 'Assigned'}</p>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -364,16 +324,20 @@ export const DashboardPage: React.FC = () => {
               </span>
             </div>
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-              {scopedStatusBoard.BLOCKED?.map((i) => (
-                <div
-                  key={i.id}
-                  onClick={() => setSelectedInternId(i.id)}
-                  className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-rose-300 text-xs shadow-2xs cursor-pointer transition-colors"
-                >
-                  <p className="font-semibold text-slate-900 truncate">{i.name}</p>
-                  <p className="text-[10px] text-rose-600 font-medium truncate">{i.tasks?.[0]?.notes || 'Awaiting Unblock'}</p>
-                </div>
-              ))}
+              {(!scopedStatusBoard.BLOCKED || scopedStatusBoard.BLOCKED.length === 0) ? (
+                <p className="text-[11px] text-slate-400 p-2 italic text-center">No active blockers</p>
+              ) : (
+                scopedStatusBoard.BLOCKED.map((i) => (
+                  <div
+                    key={i.id}
+                    onClick={() => setSelectedInternId(i.id)}
+                    className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-rose-300 text-xs shadow-2xs cursor-pointer transition-colors"
+                  >
+                    <p className="font-semibold text-slate-900 truncate">{i.name}</p>
+                    <p className="text-[10px] text-rose-600 font-medium truncate">{i.tasks?.[0]?.notes || 'Awaiting Unblock'}</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -386,18 +350,22 @@ export const DashboardPage: React.FC = () => {
               </span>
             </div>
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-              {scopedStatusBoard.NO_TASK?.map((i) => (
-                <div
-                  key={i.id}
-                  onClick={() => setSelectedInternId(i.id)}
-                  className="bg-white p-2.5 rounded-lg border border-amber-200 hover:border-amber-300 text-xs shadow-2xs cursor-pointer transition-colors"
-                >
-                  <p className="font-semibold text-slate-900 truncate">{i.name}</p>
-                  <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                    Needs Ticket
-                  </span>
-                </div>
-              ))}
+              {(!scopedStatusBoard.NO_TASK || scopedStatusBoard.NO_TASK.length === 0) ? (
+                <p className="text-[11px] text-slate-400 p-2 italic text-center">No idle interns</p>
+              ) : (
+                scopedStatusBoard.NO_TASK.map((i) => (
+                  <div
+                    key={i.id}
+                    onClick={() => setSelectedInternId(i.id)}
+                    className="bg-white p-2.5 rounded-lg border border-amber-200 hover:border-amber-300 text-xs shadow-2xs cursor-pointer transition-colors"
+                  >
+                    <p className="font-semibold text-slate-900 truncate">{i.name}</p>
+                    <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                      Needs Ticket
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -410,16 +378,20 @@ export const DashboardPage: React.FC = () => {
               </span>
             </div>
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-              {scopedStatusBoard.WAITING_REVIEW?.map((i) => (
-                <div
-                  key={i.id}
-                  onClick={() => setSelectedInternId(i.id)}
-                  className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-purple-300 text-xs shadow-2xs cursor-pointer transition-colors"
-                >
-                  <p className="font-semibold text-slate-900 truncate">{i.name}</p>
-                  <p className="text-[10px] text-purple-600 font-medium truncate">{i.tasks?.[0]?.description}</p>
-                </div>
-              ))}
+              {(!scopedStatusBoard.WAITING_REVIEW || scopedStatusBoard.WAITING_REVIEW.length === 0) ? (
+                <p className="text-[11px] text-slate-400 p-2 italic text-center">No pending reviews</p>
+              ) : (
+                scopedStatusBoard.WAITING_REVIEW.map((i) => (
+                  <div
+                    key={i.id}
+                    onClick={() => setSelectedInternId(i.id)}
+                    className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-purple-300 text-xs shadow-2xs cursor-pointer transition-colors"
+                  >
+                    <p className="font-semibold text-slate-900 truncate">{i.name}</p>
+                    <p className="text-[10px] text-purple-600 font-medium truncate">{i.tasks?.[0]?.description}</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -432,16 +404,20 @@ export const DashboardPage: React.FC = () => {
               </span>
             </div>
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-              {scopedStatusBoard.COMPLETED?.map((i) => (
-                <div
-                  key={i.id}
-                  onClick={() => setSelectedInternId(i.id)}
-                  className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-sky-300 text-xs shadow-2xs cursor-pointer transition-colors"
-                >
-                  <p className="font-semibold text-slate-900 truncate">{i.name}</p>
-                  <p className="text-[10px] text-emerald-600 font-bold truncate">✓ 100% Done</p>
-                </div>
-              ))}
+              {(!scopedStatusBoard.COMPLETED || scopedStatusBoard.COMPLETED.length === 0) ? (
+                <p className="text-[11px] text-slate-400 p-2 italic text-center">No completions logged today</p>
+              ) : (
+                scopedStatusBoard.COMPLETED.map((i) => (
+                  <div
+                    key={i.id}
+                    onClick={() => setSelectedInternId(i.id)}
+                    className="bg-white p-2.5 rounded-lg border border-slate-200 hover:border-sky-300 text-xs shadow-2xs cursor-pointer transition-colors"
+                  >
+                    <p className="font-semibold text-slate-900 truncate">{i.name}</p>
+                    <p className="text-[10px] text-emerald-600 font-bold truncate">✓ Done</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -454,22 +430,29 @@ export const DashboardPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-slate-900">Project Workload & Active Capacity</h3>
-              <p className="text-xs text-slate-500">Distribution of 40 interns across engineering projects.</p>
+              <p className="text-xs text-slate-500">Distribution of interns across engineering projects.</p>
             </div>
           </div>
 
           <div className="h-64 w-full text-xs">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.internsByProject}>
-                <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#ffffff', borderColor: '#cbd5e1', color: '#0f172a', borderRadius: '12px', fontSize: '12px' }}
-                />
-                <Bar dataKey="active" name="Active Working" fill="#0284c7" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="blocked" name="Blocked" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {(!charts.internsByProject || charts.internsByProject.length === 0) ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center space-y-2">
+                <FolderKanban className="w-8 h-8 text-slate-300" />
+                <p>No projects recorded yet. Create projects to view workload distribution.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={charts.internsByProject}>
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#ffffff', borderColor: '#cbd5e1', color: '#0f172a', borderRadius: '12px', fontSize: '12px' }}
+                  />
+                  <Bar dataKey="active" name="Active Working" fill="#0284c7" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="blocked" name="Blocked" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -481,38 +464,47 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           <div className="h-48 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={charts.taskStatusDistribution}
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {charts.taskStatusDistribution.map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#ffffff', borderColor: '#cbd5e1', color: '#0f172a', borderRadius: '12px', fontSize: '12px' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {(!charts.taskStatusDistribution || charts.taskStatusDistribution.length === 0 || totalTasksCount === 0) ? (
+              <div className="flex flex-col items-center justify-center text-slate-400 text-center space-y-1">
+                <CheckSquare className="w-8 h-8 text-slate-300" />
+                <p className="text-xs">No tasks created yet</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={charts.taskStatusDistribution}
+                    innerRadius={50}
+                    outerRadius={75}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {charts.taskStatusDistribution.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#ffffff', borderColor: '#cbd5e1', color: '#0f172a', borderRadius: '12px', fontSize: '12px' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-[11px] font-medium pt-2 border-t border-slate-100">
-            {charts.taskStatusDistribution.map((item: any, idx: number) => (
-              <div key={idx} className="flex items-center gap-2">
-                <span
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }}
-                />
-                <span className="text-slate-600">{item.name}:</span>
-                <span className="font-bold text-slate-900">{item.value}</span>
-              </div>
-            ))}
-          </div>
+          {totalTasksCount > 0 && (
+            <div className="grid grid-cols-2 gap-2 text-[11px] font-medium pt-2 border-t border-slate-100">
+              {charts.taskStatusDistribution.map((item: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }}
+                  />
+                  <span className="text-slate-600">{item.name}:</span>
+                  <span className="font-bold text-slate-900">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -533,50 +525,64 @@ export const DashboardPage: React.FC = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-          {displayedProjectSummary.map((p) => (
-
-            <div
-              key={p.id}
-              onClick={() => setActiveTab('projects')}
-              className="bg-slate-50/50 border border-slate-200 hover:border-sky-300 p-4 rounded-xl cursor-pointer transition-colors shadow-2xs space-y-3"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-900">{p.name}</h4>
-                  <p className="text-[11px] text-slate-500">Lead: {p.projectLead}</p>
-                </div>
-                <span className="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-200">
-                  {p.internCount} Interns
-                </span>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-medium">
-                  <span className="text-slate-500">Avg Target Progress</span>
-                  <span className="text-slate-900 font-bold">{p.avgProgress}%</span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-sky-500 to-emerald-500 h-full rounded-full"
-                    style={{ width: `${p.avgProgress}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-[10px] pt-1 text-slate-500">
-                <span className="text-emerald-700 font-bold">{p.activeCount} Working</span>
-                {p.blockedCount > 0 ? (
-                  <span className="text-rose-700 font-bold bg-rose-100 px-1.5 py-0.5 rounded border border-rose-200">
-                    {p.blockedCount} Blocked
+        {displayedProjectSummary.length === 0 ? (
+          <div className="text-center p-8 border border-dashed border-slate-200 rounded-xl space-y-3">
+            <FolderKanban className="w-8 h-8 text-slate-300 mx-auto" />
+            <p className="text-xs text-slate-500">No active projects found.</p>
+            {(currentRole === 'ADMIN' || currentRole === 'TEAM_LEAD') && (
+              <button
+                onClick={() => setIsQuickActionOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-semibold"
+              >
+                <FolderPlus className="w-3.5 h-3.5" /> Add First Project
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+            {displayedProjectSummary.map((p) => (
+              <div
+                key={p.id}
+                onClick={() => setActiveTab('projects')}
+                className="bg-slate-50/50 border border-slate-200 hover:border-sky-300 p-4 rounded-xl cursor-pointer transition-colors shadow-2xs space-y-3"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-900">{p.name}</h4>
+                    <p className="text-[11px] text-slate-500">Lead: {p.projectLead}</p>
+                  </div>
+                  <span className="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-200">
+                    {p.internCount} Interns
                   </span>
-                ) : (
-                  <span className="text-slate-400">0 Blocked</span>
-                )}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] font-medium">
+                    <span className="text-slate-500">Avg Target Progress</span>
+                    <span className="text-slate-900 font-bold">{p.avgProgress}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-sky-500 to-emerald-500 h-full rounded-full"
+                      style={{ width: `${p.avgProgress}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] pt-1 text-slate-500">
+                  <span className="text-emerald-700 font-bold">{p.activeCount} Working</span>
+                  {p.blockedCount > 0 ? (
+                    <span className="text-rose-700 font-bold bg-rose-100 px-1.5 py-0.5 rounded border border-rose-200">
+                      {p.blockedCount} Blocked
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">0 Blocked</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
