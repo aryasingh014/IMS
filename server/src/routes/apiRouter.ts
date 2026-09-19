@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getProfile, login } from '../controllers/authController.js';
+import { approveRegistration, getPendingRegistrations, getProfile, login, register, rejectRegistration } from '../controllers/authController.js';
 import { getDashboardSummary } from '../controllers/dashboardController.js';
 import { createIntern, getIdleInterns, getInternById, getInterns, updateIntern } from '../controllers/internController.js';
 import { createProject, getProjectById, getProjects, updateProject } from '../controllers/projectController.js';
@@ -23,6 +23,7 @@ const router = Router();
 // 1. Public Endpoints
 // ==========================================
 router.post('/auth/login', login as any);
+router.post('/auth/register', register as any);
 router.post('/whatsapp/webhook', receiveWebhook as any);
 
 // ==========================================
@@ -30,8 +31,11 @@ router.post('/whatsapp/webhook', receiveWebhook as any);
 // ==========================================
 router.use(authenticate as any);
 
-// User Profile
+// User Profile & Registration Management
 router.get('/auth/profile', requireRole('ADMIN', 'TEAM_LEAD', 'INTERN') as any, getProfile as any);
+router.get('/auth/registrations/pending', requireRole('ADMIN') as any, getPendingRegistrations as any);
+router.post('/auth/registrations/:id/approve', requireRole('ADMIN') as any, approveRegistration as any);
+router.post('/auth/registrations/:id/reject', requireRole('ADMIN') as any, rejectRegistration as any);
 
 // Dashboard Summary (Scoped per role)
 router.get('/dashboard/summary', requireRole('ADMIN', 'TEAM_LEAD', 'INTERN') as any, getDashboardSummary as any);

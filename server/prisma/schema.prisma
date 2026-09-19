@@ -15,7 +15,10 @@ model User {
   name      String
   password  String
   role      String   @default("ADMIN") // ADMIN, TEAM_LEAD, INTERN
+  status    String   @default("APPROVED") // PENDING, APPROVED, REJECTED
   avatar    String?
+  phone     String?
+  module    String?
   internId  String?  // Optional link to Intern record if role is INTERN
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

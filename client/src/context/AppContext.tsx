@@ -69,6 +69,7 @@ export type ActiveTab =
   | 'weekly-review'
   | 'ft-evaluation'
   | 'teams'
+  | 'access-requests'
   | 'google-sheets'
   | 'whatsapp'
   | 'audit'
@@ -99,6 +100,12 @@ interface AppContextType {
   currentUser: RoleUser;
   setCurrentRole: (role: UserRole) => Promise<void>;
   updateCurrentUser: (updates: Partial<RoleUser>) => void;
+
+  isLandingPage: boolean;
+  setIsLandingPage: (val: boolean) => void;
+  logout: () => void;
+  pendingRequestsCount: number;
+  refreshPendingCount: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -114,6 +121,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [globalSearch, setGlobalSearch] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const [isLandingPage, setIsLandingPage] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
   const [currentRole, setCurrentRoleState] = useState<UserRole>('ADMIN');
   const [currentUser, setCurrentUser] = useState<RoleUser>(MOCK_USERS.ADMIN);
 
@@ -124,11 +134,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 4000);
   };
 
+  const refreshPendingCount = async () => {
+    try {
+      if (currentRole === 'ADMIN') {
+        const res = await api.getPendingRegistrations();
+        setPendingRequestsCount(res.pendingUsers ? res.pendingUsers.length : 0);
+      }
+    } catch (err) {
+      // ignore
+    }
+  };
+
   const refreshSummary = async () => {
     try {
       setIsLoadingSummary(true);
       const data = await api.getDashboardSummary();
       setDashboardSummary(data);
+      await refreshPendingCount();
     } catch (err: any) {
       console.error('Failed to load dashboard summary:', err);
     } finally {
@@ -174,6 +196,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Profile information updated successfully!');
   };
 
+  const logout = () => {
+    setAuthToken(null);
+    setIsLandingPage(true);
+    showToast('Logged out of workspace.');
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -201,6 +229,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         setCurrentRole,
         updateCurrentUser,
+
+        isLandingPage,
+        setIsLandingPage,
+        logout,
+        pendingRequestsCount,
+        refreshPendingCount,
       }}
     >
       {children}

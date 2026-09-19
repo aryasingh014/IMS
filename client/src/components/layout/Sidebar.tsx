@@ -17,15 +17,17 @@ import {
   Shield,
   UserCheck,
   User,
+  UserPlus,
 } from 'lucide-react';
 import { useApp, ActiveTab } from '../../context/AppContext';
 import { UserRole } from '../../types';
 
 export const Sidebar: React.FC = () => {
-  const { activeTab, setActiveTab, summaryData, currentRole, currentUser } = useApp();
+  const { activeTab, setActiveTab, summaryData, currentRole, currentUser, pendingRequestsCount } = useApp();
 
   const allNavigation = [
     { id: 'dashboard', label: currentRole === 'INTERN' ? 'My Overview' : 'Dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'TEAM_LEAD', 'INTERN'] },
+    { id: 'access-requests', label: 'Access Requests', icon: UserPlus, count: pendingRequestsCount, badgeColor: 'bg-amber-100 text-amber-800 font-bold border border-amber-300', roles: ['ADMIN'] },
     { id: 'projects', label: 'Projects Overview', icon: FolderKanban, count: summaryData?.kpi?.projectsCount, roles: ['ADMIN', 'TEAM_LEAD'] },
     { id: 'interns', label: 'Intern Directory', icon: Users, count: summaryData?.kpi?.totalInterns, roles: ['ADMIN', 'TEAM_LEAD'] },
     { id: 'tasks', label: currentRole === 'INTERN' ? 'My Tasks & Kanban' : 'Daily Tasks & Kanban', icon: CheckSquare, roles: ['ADMIN', 'TEAM_LEAD', 'INTERN'] },

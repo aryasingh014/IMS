@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Bell, RefreshCw, Shield, Users, UserCheck, ChevronDown } from 'lucide-react';
+import { Search, Plus, Bell, RefreshCw, Shield, Users, UserCheck, ChevronDown, LogOut } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
 
@@ -12,6 +12,8 @@ export const Header: React.FC = () => {
     currentRole,
     currentUser,
     setCurrentRole,
+    logout,
+    setIsLandingPage,
   } = useApp();
 
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
@@ -146,6 +148,15 @@ export const Header: React.FC = () => {
             <span>Quick Actions</span>
           </button>
         )}
+
+        {/* Sign Out / Exit to Landing Page */}
+        <button
+          onClick={logout}
+          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors ml-1"
+          title="Sign Out / Return to Landing Page"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </header>
   );

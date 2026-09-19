@@ -8,6 +8,7 @@ import {
   FTEvaluation,
   WhatsAppMessage,
   AlertItem,
+  PendingUser,
 } from '../types';
 
 const API_BASE = '/api';
@@ -58,6 +59,13 @@ const qs = (p?: Record<string, string>) => (p && Object.keys(p).length ? `?${new
 export const api = {
   login: (credentials: { email: string; password: string }) =>
     post<{ token: string; user: any }>('/auth/login', credentials),
+
+  register: (data: { name: string; email: string; password: string; role: string; phone?: string; module?: string }) =>
+    post<{ message: string; user: any }>('/auth/register', data),
+
+  getPendingRegistrations: () => get<{ pendingUsers: PendingUser[] }>('/auth/registrations/pending'),
+  approveRegistration: (id: string) => post<{ message: string; user: any }>(`/auth/registrations/${id}/approve`),
+  rejectRegistration: (id: string) => post<{ message: string; user: any }>(`/auth/registrations/${id}/reject`),
 
   getDashboardSummary: () => get<DashboardSummary>('/dashboard/summary'),
 

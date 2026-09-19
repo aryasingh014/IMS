@@ -4,6 +4,8 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { GlobalSearchModal } from './components/layout/GlobalSearchModal';
 import { QuickActionModal } from './components/layout/QuickActionModal';
+import { LandingPage } from './pages/LandingPage';
+import { AccessRequestsPage } from './pages/AccessRequestsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { InternsPage } from './pages/InternsPage';
@@ -20,12 +22,18 @@ import { AuditLogsPage } from './pages/AuditLogsPage';
 import { InternProfilePage } from './pages/InternProfilePage';
 
 const MainLayout: React.FC = () => {
-  const { activeTab, toastMessage } = useApp();
+  const { activeTab, toastMessage, isLandingPage, setIsLandingPage } = useApp();
+
+  if (isLandingPage) {
+    return <LandingPage onEnterApp={() => setIsLandingPage(false)} />;
+  }
 
   const renderActivePage = () => {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardPage />;
+      case 'access-requests':
+        return <AccessRequestsPage />;
       case 'projects':
         return <ProjectsPage />;
       case 'interns':

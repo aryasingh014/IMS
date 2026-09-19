@@ -218,13 +218,29 @@ export interface DashboardSummary {
 }
 
 export type UserRole = 'ADMIN' | 'TEAM_LEAD' | 'INTERN';
+export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  status?: UserStatus;
   avatar?: string;
+  phone?: string;
+  module?: string;
   internId?: string;
+}
+
+export interface PendingUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  phone?: string;
+  module?: string;
+  avatar?: string;
+  createdAt: string;
 }
 
