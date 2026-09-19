@@ -23,7 +23,7 @@ import { api, setAuthToken } from '../services/api';
 import { UserRole } from '../types';
 
 export const LandingPage: React.FC<{ onEnterApp: () => void }> = ({ onEnterApp }) => {
-  const { setCurrentRole, showToast } = useApp();
+  const { setCurrentRole, showToast, login } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState<'signin' | 'register'>('signin');
 
@@ -58,9 +58,8 @@ export const LandingPage: React.FC<{ onEnterApp: () => void }> = ({ onEnterApp }
     setLoginError(null);
     setIsLoggingIn(true);
     try {
-      const res = await api.login({ email: loginEmail, password: loginPassword });
-      setAuthToken(res.token);
-      showToast(`Welcome back, ${res.user.name}!`);
+      const user = await login(loginEmail, loginPassword);
+      showToast(`Welcome back, ${user.name}! (${user.role})`);
       setIsModalOpen(false);
       onEnterApp();
     } catch (err: any) {

@@ -103,6 +103,7 @@ interface AppContextType {
 
   isLandingPage: boolean;
   setIsLandingPage: (val: boolean) => void;
+  login: (email: string, password: string) => Promise<any>;
   logout: () => void;
   pendingRequestsCount: number;
   refreshPendingCount: () => Promise<void>;
@@ -121,7 +122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [globalSearch, setGlobalSearch] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const [isLandingPage, setIsLandingPage] = useState(false);
+  const [isLandingPage, setIsLandingPage] = useState(true);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   const [currentRole, setCurrentRoleState] = useState<UserRole>('ADMIN');
@@ -174,11 +175,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         internId: res.user.internId,
         teamId: res.user.teamId,
       });
+      setActiveTab('dashboard');
       await refreshSummary();
     } catch (error: any) {
       console.error(`Failed to authenticate as ${role}:`, error);
       showToast(`Auth error: ${error.message}`);
     }
+  };
+
+  const login = async (email: string, password: string) => {
+    const res = await api.login({ email, password });
+    setAuthToken(res.token);
+    const role = (res.user.role as UserRole) || 'INTERN';
+    setCurrentRoleState(role);
+    const roleMeta = ROLE_CREDENTIALS[role] || ROLE_CREDENTIALS.INTERN;
+    setCurrentUser({
+      id: res.user.id,
+      name: res.user.name,
+      email: res.user.email,
+      role: role,
+      title: role === 'TEAM_LEAD' ? 'Engineering Team Lead' : role === 'INTERN' ? 'Software Engineer Intern' : 'System Administrator',
+      avatar: res.user.avatar || roleMeta.defaultAvatar,
+      internId: res.user.internId,
+      teamId: res.user.teamId,
+    });
+    setActiveTab('dashboard');
+    setIsLandingPage(false);
+    await refreshSummary();
+    return res.user;
   };
 
   // Authenticate on initial load
@@ -188,6 +212,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setCurrentRole = async (role: UserRole) => {
     await authenticateRole(role);
+    setActiveTab('dashboard');
+    setIsLandingPage(false);
     showToast(`Authenticated and switched active role to ${role}`);
   };
 
@@ -232,6 +258,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         isLandingPage,
         setIsLandingPage,
+        login,
         logout,
         pendingRequestsCount,
         refreshPendingCount,
