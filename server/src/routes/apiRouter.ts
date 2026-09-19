@@ -46,8 +46,8 @@ router.put('/interns/:id', requireRole('ADMIN', 'TEAM_LEAD') as any, updateInter
 // Projects
 router.get('/projects', requireRole('ADMIN', 'TEAM_LEAD', 'INTERN') as any, getProjects as any);
 router.get('/projects/:id', requireRole('ADMIN', 'TEAM_LEAD', 'INTERN') as any, getProjectById as any);
-router.post('/projects', requireRole('ADMIN') as any, createProject as any);
-router.put('/projects/:id', requireRole('ADMIN') as any, updateProject as any);
+router.post('/projects', requireRole('ADMIN', 'TEAM_LEAD') as any, createProject as any);
+router.put('/projects/:id', requireRole('ADMIN', 'TEAM_LEAD') as any, updateProject as any);
 
 // Tasks
 router.get('/tasks', requireRole('ADMIN', 'TEAM_LEAD', 'INTERN') as any, getTasks as any);

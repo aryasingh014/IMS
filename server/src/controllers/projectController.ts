@@ -3,17 +3,18 @@ import { prisma } from '../db.js';
 import { logAudit } from '../services/auditService.js';
 import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
-// GET /api/projects - All projects with statistics (scoped by role)
+// GET /api/projects - All projects with statistics (scoped by role with Multi-Lead support)
 export async function getProjects(req: AuthenticatedRequest, res: Response) {
   try {
     const user = req.user;
     let whereClause: any = {};
 
-    // ponytail: harmonize TEAM_LEAD scope with team member project assignments
+    // ponytail: include projects where user is primary lead, co-lead, or squad team member
     if (user?.role === 'TEAM_LEAD') {
       whereClause = {
         OR: [
           { projectLead: user.name },
+          { coLeads: { contains: user.name } },
           ...(user.teamId ? [{ interns: { some: { teamId: user.teamId } } }] : []),
         ],
       };
@@ -35,6 +36,7 @@ export async function getProjects(req: AuthenticatedRequest, res: Response) {
             status: true,
             ftPotential: true,
             teamId: true,
+            module: true,
           },
         },
         tasks: {
@@ -62,6 +64,7 @@ export async function getProjects(req: AuthenticatedRequest, res: Response) {
         id: p.id,
         name: p.name,
         projectLead: p.projectLead,
+        coLeads: p.coLeads || '',
         description: p.description,
         status: p.status,
         targetCompletion: p.targetCompletion,
@@ -82,7 +85,7 @@ export async function getProjects(req: AuthenticatedRequest, res: Response) {
   }
 }
 
-// GET /api/projects/:id - Detailed project page
+// GET /api/projects/:id - Detailed project page with squad & co-leads
 export async function getProjectById(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
@@ -110,9 +113,13 @@ export async function getProjectById(req: AuthenticatedRequest, res: Response) {
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
     if (user?.role === 'TEAM_LEAD') {
-      const isLeadOrTeamInvolved = project.projectLead === user.name || (user.teamId && project.interns.some((i) => i.teamId === user.teamId));
-      if (!isLeadOrTeamInvolved) {
-        return res.status(403).json({ error: 'Forbidden: You do not lead this project or have team members assigned to it.' });
+      const isLead =
+        project.projectLead === user.name ||
+        (project.coLeads && project.coLeads.includes(user.name)) ||
+        (user.teamId && project.interns.some((i) => i.teamId === user.teamId));
+
+      if (!isLead) {
+        return res.status(403).json({ error: 'Forbidden: You do not lead this project or have team members in it.' });
       }
     }
 
@@ -129,41 +136,93 @@ export async function getProjectById(req: AuthenticatedRequest, res: Response) {
   }
 }
 
-// POST /api/projects - Create project (ADMIN only)
+// POST /api/projects - Create project with Co-Leads & Squad Intern selection (ADMIN & TEAM_LEAD)
 export async function createProject(req: AuthenticatedRequest, res: Response) {
   try {
-    const { name, projectLead, description, targetCompletion } = req.body;
+    const user = req.user;
+    const { name, projectLead, coLeads, description, targetCompletion, internIds } = req.body;
+
+    // Default project lead to logged in user if Team Lead
+    const lead = projectLead || user?.name || 'Admin Team Lead';
+    const coLeadsStr = Array.isArray(coLeads) ? coLeads.join(', ') : coLeads || '';
 
     const project = await prisma.project.create({
       data: {
         name,
-        projectLead,
+        projectLead: lead,
+        coLeads: coLeadsStr,
         description,
         targetCompletion: targetCompletion ? parseInt(targetCompletion, 10) : 100,
       },
     });
 
-    await logAudit('Project', project.id, 'CREATE', req.user?.name || 'Admin', null, project);
+    // ponytail: batch associate selected squad interns to newly created project
+    if (Array.isArray(internIds) && internIds.length > 0) {
+      await prisma.intern.updateMany({
+        where: { id: { in: internIds } },
+        data: { projectId: project.id },
+      });
+    }
+
+    await logAudit('Project', project.id, 'CREATE', user?.name || 'Admin', null, {
+      ...project,
+      assignedInternsCount: internIds?.length || 0,
+    });
+
     return res.status(201).json({ project });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to create project' });
   }
 }
 
-// PUT /api/projects/:id - Update project (ADMIN only)
+// PUT /api/projects/:id - Update project, co-leads & squad roster (ADMIN & TEAM_LEAD)
 export async function updateProject(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
-    const oldVal = await prisma.project.findUnique({ where: { id } });
+    const user = req.user;
+    const oldVal = await prisma.project.findUnique({ where: { id }, include: { interns: true } });
 
     if (!oldVal) return res.status(404).json({ error: 'Project not found' });
 
+    // Verify update rights for TEAM_LEAD
+    if (user?.role === 'TEAM_LEAD') {
+      const isLead =
+        oldVal.projectLead === user.name ||
+        (oldVal.coLeads && oldVal.coLeads.includes(user.name));
+      if (!isLead) {
+        return res.status(403).json({ error: 'Forbidden: Only assigned leads can edit this project.' });
+      }
+    }
+
+    const { internIds, coLeads, ...restData } = req.body;
+    const updateData: any = { ...restData };
+
+    if (coLeads !== undefined) {
+      updateData.coLeads = Array.isArray(coLeads) ? coLeads.join(', ') : coLeads;
+    }
+
     const project = await prisma.project.update({
       where: { id },
-      data: req.body,
+      data: updateData,
     });
 
-    await logAudit('Project', id, 'UPDATE', req.user?.name || 'Admin', oldVal, project);
+    // If internIds is provided, update roster
+    if (Array.isArray(internIds)) {
+      // Unlink interns not in the list
+      await prisma.intern.updateMany({
+        where: { projectId: id, id: { notIn: internIds } },
+        data: { projectId: null },
+      });
+      // Link selected interns
+      if (internIds.length > 0) {
+        await prisma.intern.updateMany({
+          where: { id: { in: internIds } },
+          data: { projectId: id },
+        });
+      }
+    }
+
+    await logAudit('Project', id, 'UPDATE', user?.name || 'Admin', oldVal, project);
     return res.json({ project });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to update project' });

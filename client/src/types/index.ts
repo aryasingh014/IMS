@@ -48,6 +48,7 @@ export interface Project {
   id: string;
   name: string;
   projectLead: string;
+  coLeads?: string;
   description?: string;
   status: string;
   targetCompletion: number;
@@ -60,6 +61,7 @@ export interface Project {
   avgProgress?: number;
   interns?: Intern[];
   tasks?: Task[];
+  internIds?: string[];
 }
 
 export interface Task {

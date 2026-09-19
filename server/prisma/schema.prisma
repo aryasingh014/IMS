@@ -37,6 +37,7 @@ model Project {
   name             String   @unique
   description      String?
   projectLead      String
+  coLeads          String?  @default("") // ponytail: comma-separated co-lead names/IDs
   status           String   @default("Active") // Active, Completed, Paused
   targetCompletion Int      @default(100)
   createdAt        DateTime @default(now())
