@@ -1,36 +1,60 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../services/api';
+import { api, setAuthToken } from '../services/api';
 import { DashboardSummary, UserRole } from '../types';
 
 export interface RoleUser {
+  id?: string;
   name: string;
   email: string;
   role: UserRole;
   title: string;
   avatar: string;
+  internId?: string | null;
+  teamId?: string | null;
 }
+
+export const ROLE_CREDENTIALS: Record<UserRole, { email: string; password: string; title: string; defaultAvatar: string }> = {
+  ADMIN: {
+    email: 'admin@company.com',
+    password: 'adminpassword123',
+    title: 'System Administrator',
+    defaultAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+  },
+  TEAM_LEAD: {
+    email: 'vikram.malhotra@company.com',
+    password: 'leadpassword123',
+    title: 'AI Core & Automation Lead',
+    defaultAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+  },
+  INTERN: {
+    email: 'rahul.kumar@company.com',
+    password: 'internpassword123',
+    title: 'Software Engineer Intern',
+    defaultAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+  },
+};
 
 export const MOCK_USERS: Record<UserRole, RoleUser> = {
   ADMIN: {
-    name: 'Arya Singh',
-    email: 'admin@company.com',
+    name: 'Arya Singh (Admin)',
+    email: ROLE_CREDENTIALS.ADMIN.email,
     role: 'ADMIN',
-    title: 'System Administrator',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    title: ROLE_CREDENTIALS.ADMIN.title,
+    avatar: ROLE_CREDENTIALS.ADMIN.defaultAvatar,
   },
   TEAM_LEAD: {
     name: 'Vikram Malhotra',
-    email: 'vikram.malhotra@company.com',
+    email: ROLE_CREDENTIALS.TEAM_LEAD.email,
     role: 'TEAM_LEAD',
-    title: 'AI Core Lead',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+    title: ROLE_CREDENTIALS.TEAM_LEAD.title,
+    avatar: ROLE_CREDENTIALS.TEAM_LEAD.defaultAvatar,
   },
   INTERN: {
     name: 'Rahul Kumar',
-    email: 'rahul.kumar@company.com',
+    email: ROLE_CREDENTIALS.INTERN.email,
     role: 'INTERN',
-    title: 'Software Engineer Intern',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    title: ROLE_CREDENTIALS.INTERN.title,
+    avatar: ROLE_CREDENTIALS.INTERN.defaultAvatar,
   },
 };
 
@@ -49,7 +73,6 @@ export type ActiveTab =
   | 'whatsapp'
   | 'audit'
   | 'profile';
-
 
 interface AppContextType {
   activeTab: ActiveTab;
@@ -74,10 +97,9 @@ interface AppContextType {
 
   currentRole: UserRole;
   currentUser: RoleUser;
-  setCurrentRole: (role: UserRole) => void;
+  setCurrentRole: (role: UserRole) => Promise<void>;
   updateCurrentUser: (updates: Partial<RoleUser>) => void;
 }
-
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -92,6 +114,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [globalSearch, setGlobalSearch] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const [currentRole, setCurrentRoleState] = useState<UserRole>('ADMIN');
+  const [currentUser, setCurrentUser] = useState<RoleUser>(MOCK_USERS.ADMIN);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
+
   const refreshSummary = async () => {
     try {
       setIsLoadingSummary(true);
@@ -104,31 +136,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  useEffect(() => {
-    refreshSummary();
-  }, []);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
+  const authenticateRole = async (role: UserRole) => {
+    try {
+      const creds = ROLE_CREDENTIALS[role];
+      const res = await api.login({ email: creds.email, password: creds.password });
+      setAuthToken(res.token);
+      setCurrentRoleState(role);
+      setCurrentUser({
+        id: res.user.id,
+        name: res.user.name,
+        email: res.user.email,
+        role: res.user.role as UserRole,
+        title: creds.title,
+        avatar: res.user.avatar || creds.defaultAvatar,
+        internId: res.user.internId,
+        teamId: res.user.teamId,
+      });
+      await refreshSummary();
+    } catch (error: any) {
+      console.error(`Failed to authenticate as ${role}:`, error);
+      showToast(`Auth error: ${error.message}`);
+    }
   };
 
-  const [currentRole, setCurrentRoleState] = useState<UserRole>('ADMIN');
-  const [currentUser, setCurrentUser] = useState<RoleUser>(MOCK_USERS.ADMIN);
+  // Authenticate on initial load
+  useEffect(() => {
+    authenticateRole('ADMIN');
+  }, []);
 
-  const setCurrentRole = (role: UserRole) => {
-    setCurrentRoleState(role);
-    setCurrentUser(MOCK_USERS[role]);
-    showToast(`Switched active test role to ${role}`);
+  const setCurrentRole = async (role: UserRole) => {
+    await authenticateRole(role);
+    showToast(`Authenticated and switched active role to ${role}`);
   };
 
   const updateCurrentUser = (updates: Partial<RoleUser>) => {
     setCurrentUser((prev) => ({ ...prev, ...updates }));
     showToast('Profile information updated successfully!');
   };
-
 
   return (
     <AppContext.Provider

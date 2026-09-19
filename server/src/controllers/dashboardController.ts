@@ -1,39 +1,104 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prisma } from '../db.js';
 import { refreshAlerts } from '../services/alertService.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
-export async function getDashboardSummary(req: Request, res: Response) {
+export async function getDashboardSummary(req: AuthenticatedRequest, res: Response) {
   try {
-    // Refresh alerts to reflect latest system state
-    await refreshAlerts();
-
+    const user = req.user;
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // 1. Fetch Intern Counts
-    const totalInterns = await prisma.intern.count();
-    const activeInterns = await prisma.intern.count({ where: { status: 'Working' } });
-    const blockedInterns = await prisma.intern.count({ where: { status: 'Blocked' } });
+    // ponytail: build dynamic scoping filter based on auth role
+    let internWhere: any = {};
+    let projectWhere: any = {};
+    let taskWhere: any = {};
+
+    if (user?.role === 'TEAM_LEAD') {
+      internWhere = {
+        OR: [
+          ...(user.teamId ? [{ teamId: user.teamId }] : []),
+          { project: { projectLead: user.name } },
+        ],
+      };
+      projectWhere = {
+        OR: [
+          { projectLead: user.name },
+          ...(user.teamId ? [{ interns: { some: { teamId: user.teamId } } }] : []),
+        ],
+      };
+      taskWhere = {
+        intern: internWhere,
+      };
+    } else if (user?.role === 'INTERN') {
+      const internIdFilter = user.internId ? { id: user.internId } : { email: user.email };
+      const resolvedIntern = await prisma.intern.findFirst({ where: internIdFilter });
+      
+      // Explicit handling when no intern record is linked
+      if (!resolvedIntern) {
+        return res.json({
+          kpi: {
+            totalInterns: 0,
+            activeInterns: 0,
+            blockedInterns: 0,
+            idleInterns: 0,
+            completedTasksToday: 0,
+            projectsCount: 0,
+            ftPotentialCount: 0,
+            tasksDueToday: 0,
+          },
+          projectSummary: [],
+          statusBoard: { WORKING: [], BLOCKED: [], NO_TASK: [], WAITING_REVIEW: [], COMPLETED: [] },
+          charts: {
+            internsByProject: [],
+            taskStatusDistribution: [],
+            weeklyCompletion: [],
+            blockersByProject: [],
+          },
+          recentUpdates: [],
+          alerts: [],
+        });
+      }
+
+      const internDbId = resolvedIntern.id;
+      internWhere = { id: internDbId };
+      projectWhere = resolvedIntern.projectId ? { id: resolvedIntern.projectId } : { id: resolvedIntern.id };
+      taskWhere = { internId: internDbId };
+    }
+
+    // Refresh alerts only for the active role scope
+    await refreshAlerts(internWhere);
+
+    // 1. Intern Counts (scoped)
+    const totalInterns = await prisma.intern.count({ where: internWhere });
+    const activeInterns = await prisma.intern.count({ where: { ...internWhere, status: 'Working' } });
+    const blockedInterns = await prisma.intern.count({ where: { ...internWhere, status: 'Blocked' } });
     const idleInterns = await prisma.intern.count({
       where: {
+        ...internWhere,
         OR: [
           { status: 'No Task' },
           { tasks: { none: { status: { in: ['Working', 'Waiting Review'] } } } },
         ],
       },
     });
+
     const completedTasksToday = await prisma.task.count({
       where: {
+        ...taskWhere,
         status: 'Completed',
         completedDate: { gte: startOfToday },
       },
     });
-    const projectsCount = await prisma.project.count();
+
+    const projectsCount = await prisma.project.count({ where: projectWhere });
     const ftPotentialCount = await prisma.intern.count({
-      where: { ftPotential: 'Strong Potential' },
+      where: { ...internWhere, ftPotential: 'Strong Potential' },
     });
+
     const tasksDueToday = await prisma.task.count({
       where: {
+        ...taskWhere,
         status: { in: ['Working', 'Waiting Review', 'Not Started'] },
         deadline: {
           gte: startOfToday,
@@ -42,11 +107,12 @@ export async function getDashboardSummary(req: Request, res: Response) {
       },
     });
 
-    // 2. Fetch Projects Summary
+    // 2. Fetch Projects Summary (scoped)
     const projects = await prisma.project.findMany({
+      where: projectWhere,
       include: {
-        interns: true,
-        tasks: true,
+        interns: { where: internWhere },
+        tasks: { where: taskWhere },
       },
     });
 
@@ -70,8 +136,9 @@ export async function getDashboardSummary(req: Request, res: Response) {
       };
     });
 
-    // 3. Fetch Intern Status Board (Kanban cards)
+    // 3. Fetch Intern Status Board (Kanban cards - scoped)
     const internsWithDetails = await prisma.intern.findMany({
+      where: internWhere,
       include: {
         project: { select: { name: true } },
         tasks: {
@@ -92,7 +159,6 @@ export async function getDashboardSummary(req: Request, res: Response) {
     };
 
     // 4. Recharts Chart Datasets
-    // Interns by Project
     const internsByProject = projectSummary.map((p) => ({
       name: p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
       fullName: p.name,
@@ -101,9 +167,9 @@ export async function getDashboardSummary(req: Request, res: Response) {
       blocked: p.blockedCount,
     }));
 
-    // Task Status Distribution
     const taskStatuses = await prisma.task.groupBy({
       by: ['status'],
+      where: taskWhere,
       _count: { _all: true },
     });
     const taskStatusDistribution = taskStatuses.map((t) => ({
@@ -111,23 +177,44 @@ export async function getDashboardSummary(req: Request, res: Response) {
       value: t._count._all,
     }));
 
-    // Blockers by Project
     const blockersByProject = projectSummary.map((p) => ({
       name: p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
       blocked: p.blockedCount,
     }));
 
-    // Weekly Completion sample data
-    const weeklyCompletion = [
-      { day: 'Mon', completed: 12, assigned: 15 },
-      { day: 'Tue', completed: 18, assigned: 20 },
-      { day: 'Wed', completed: 14, assigned: 18 },
-      { day: 'Thu', completed: 22, assigned: 24 },
-      { day: 'Fri', completed: 25, assigned: 28 },
-    ];
+    // Dynamic 5-day task completion history
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const weeklyCompletion = [];
+    for (let offset = 4; offset >= 0; offset--) {
+      const dayStart = new Date(startOfToday.getTime() - offset * 24 * 60 * 60 * 1000);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const dayName = daysOfWeek[dayStart.getDay()];
 
-    // 5. Recent Daily Updates
+      const completed = await prisma.task.count({
+        where: {
+          ...taskWhere,
+          status: 'Completed',
+          completedDate: { gte: dayStart, lt: dayEnd },
+        },
+      });
+
+      const assigned = await prisma.task.count({
+        where: {
+          ...taskWhere,
+          startDate: { gte: dayStart, lt: dayEnd },
+        },
+      });
+
+      weeklyCompletion.push({
+        day: dayName,
+        completed,
+        assigned: Math.max(assigned, completed),
+      });
+    }
+
+    // 5. Recent Daily Updates (scoped)
     const recentUpdates = await prisma.dailyUpdate.findMany({
+      where: { intern: internWhere },
       take: 5,
       orderBy: { date: 'desc' },
       include: {
@@ -137,8 +224,14 @@ export async function getDashboardSummary(req: Request, res: Response) {
       },
     });
 
-    // 6. Active Alerts
+    // 6. Active Alerts (scoped)
     const alerts = await prisma.alert.findMany({
+      where: {
+        OR: [
+          { intern: internWhere },
+          { project: projectWhere },
+        ],
+      },
       take: 10,
       orderBy: { createdAt: 'desc' },
       include: {

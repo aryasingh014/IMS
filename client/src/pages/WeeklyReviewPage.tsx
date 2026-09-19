@@ -28,17 +28,11 @@ export const WeeklyReviewPage: React.FC = () => {
     return <div className="text-xs text-slate-500 p-6">Loading Performance Scorecard...</div>;
   }
 
-  // Filter reviews for Intern and Team Lead roles
-  const displayedReviews = currentRole === 'INTERN'
-    ? reviews.filter((r) => r.name?.toLowerCase().includes('rahul') || r.email === currentUser.email)
-    : currentRole === 'TEAM_LEAD'
-    ? reviews.filter((r) => r.projectName === 'GLC AI Lead Intelligence' || r.projectLead?.toLowerCase().includes('vikram') || r.name === 'Rahul Kumar')
-    : reviews;
-
+  const displayedReviews = reviews;
 
   const myPerformance = displayedReviews[0] || {
-    name: currentUser.name || 'Rahul Kumar',
-    projectName: 'GLC AI Lead Intelligence',
+    name: currentUser.name || 'Intern',
+    projectName: currentUser.title || 'Assigned Project',
     learningSpeed: 5,
     technicalAbility: 5,
     ownership: 5,
@@ -47,7 +41,7 @@ export const WeeklyReviewPage: React.FC = () => {
     communication: 5,
     problemSolving: 5,
     ftPotential: 'HIGH',
-    learningEvidence: 'Demonstrated stellar technical capability by building unit test coverage for OAuth endpoints and fixing WebSocket retry loops ahead of schedule.',
+    learningEvidence: 'Demonstrated stellar technical capability by completing assigned tasks independently and delivering quality code ahead of schedule.',
   };
 
   const metrics = [

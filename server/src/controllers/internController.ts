@@ -1,38 +1,56 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prisma } from '../db.js';
 import { logAudit } from '../services/auditService.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
-// GET /api/interns - Search, filter, and sort interns
-export async function getInterns(req: Request, res: Response) {
+// GET /api/interns - Search, filter, and sort interns (scoped by role)
+export async function getInterns(req: AuthenticatedRequest, res: Response) {
   try {
+    const user = req.user;
     const { search, project, status, team, ftPotential, sortBy, sortOrder } = req.query;
 
-    const whereClause: any = {};
+    const conditions: any[] = [];
+
+    // ponytail: strict role-based data isolation
+    if (user?.role === 'TEAM_LEAD') {
+      conditions.push({
+        OR: [
+          ...(user.teamId ? [{ teamId: user.teamId }] : []),
+          { project: { projectLead: user.name } },
+        ],
+      });
+    } else if (user?.role === 'INTERN') {
+      conditions.push(user.internId ? { id: user.internId } : { email: user.email });
+    }
 
     if (search) {
-      whereClause.OR = [
-        { name: { contains: String(search) } },
-        { email: { contains: String(search) } },
-        { module: { contains: String(search) } },
-        { internId: { contains: String(search) } },
-      ];
+      conditions.push({
+        OR: [
+          { name: { contains: String(search) } },
+          { email: { contains: String(search) } },
+          { module: { contains: String(search) } },
+          { internId: { contains: String(search) } },
+        ],
+      });
     }
 
     if (project && project !== 'all') {
-      whereClause.projectId = String(project);
+      conditions.push({ projectId: String(project) });
     }
 
     if (status && status !== 'all') {
-      whereClause.status = String(status);
+      conditions.push({ status: String(status) });
     }
 
     if (team && team !== 'all') {
-      whereClause.teamId = String(team);
+      conditions.push({ teamId: String(team) });
     }
 
     if (ftPotential && ftPotential !== 'all') {
-      whereClause.ftPotential = String(ftPotential);
+      conditions.push({ ftPotential: String(ftPotential) });
     }
+
+    const whereClause = conditions.length > 0 ? { AND: conditions } : {};
 
     let orderBy: any = { name: 'asc' };
     if (sortBy === 'lastUpdated') orderBy = { lastUpdated: sortOrder === 'asc' ? 'asc' : 'desc' };
@@ -59,19 +77,37 @@ export async function getInterns(req: Request, res: Response) {
 }
 
 // GET /api/interns/idle - Dedicated No Task / Idle Interns section
-export async function getIdleInterns(req: Request, res: Response) {
+export async function getIdleInterns(req: AuthenticatedRequest, res: Response) {
   try {
+    const user = req.user;
+    if (user?.role === 'INTERN') {
+      return res.status(403).json({ error: 'Access denied: Interns cannot access the idle intern directory' });
+    }
+
     const now = new Date();
     const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 
-    const idleInterns = await prisma.intern.findMany({
-      where: {
+    const conditions: any[] = [
+      {
         OR: [
           { status: 'No Task' },
           { tasks: { none: { status: { in: ['Working', 'Waiting Review'] } } } },
           { dailyUpdates: { none: { date: { gte: twoDaysAgo } } } },
         ],
       },
+    ];
+
+    if (user?.role === 'TEAM_LEAD') {
+      conditions.push({
+        OR: [
+          ...(user.teamId ? [{ teamId: user.teamId }] : []),
+          { project: { projectLead: user.name } },
+        ],
+      });
+    }
+
+    const idleInterns = await prisma.intern.findMany({
+      where: { AND: conditions },
       include: {
         project: { select: { name: true } },
         team: { select: { name: true, leadName: true } },
@@ -92,27 +128,48 @@ export async function getIdleInterns(req: Request, res: Response) {
   }
 }
 
-// GET /api/interns/:id - Complete profile details + timeline
-export async function getInternById(req: Request, res: Response) {
+// GET /api/interns/:id - Complete profile details + timeline (Query-level security isolation)
+export async function getInternById(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
+    const user = req.user;
 
-    const intern = await prisma.intern.findUnique({
-      where: { id },
+    const conditions: any[] = [{ id }];
+
+    if (user?.role === 'INTERN') {
+      conditions.push(user.internId ? { id: user.internId } : { email: user.email });
+    } else if (user?.role === 'TEAM_LEAD') {
+      conditions.push({
+        OR: [
+          ...(user.teamId ? [{ teamId: user.teamId }] : []),
+          { project: { projectLead: user.name } },
+        ],
+      });
+    }
+
+    const isIntern = user?.role === 'INTERN';
+
+    const intern = await prisma.intern.findFirst({
+      where: { AND: conditions },
       include: {
         project: true,
         team: true,
         tasks: { orderBy: { createdAt: 'desc' } },
         dailyUpdates: { orderBy: { date: 'desc' } },
         blockers: { orderBy: { reportedDate: 'desc' } },
-        performanceReviews: { orderBy: { reviewDate: 'desc' } },
-        ftEvaluations: { orderBy: { evaluationDate: 'desc' } },
+        // ponytail: prevent sensitive HR evaluations from being loaded into memory for interns
+        ...(!isIntern
+          ? {
+              performanceReviews: { orderBy: { reviewDate: 'desc' } },
+              ftEvaluations: { orderBy: { evaluationDate: 'desc' } },
+            }
+          : {}),
         whatsappMessages: { orderBy: { receivedAt: 'desc' } },
       },
     });
 
     if (!intern) {
-      return res.status(404).json({ error: 'Intern not found' });
+      return res.status(404).json({ error: 'Intern not found or access denied.' });
     }
 
     // Assemble activity history timeline
@@ -169,10 +226,29 @@ export async function getInternById(req: Request, res: Response) {
   }
 }
 
-// POST /api/interns - Create new intern
-export async function createIntern(req: Request, res: Response) {
+// POST /api/interns - Create new intern (ADMIN only)
+export async function createIntern(req: AuthenticatedRequest, res: Response) {
   try {
     const { name, email, phone, module, projectId, teamId, remarks } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ error: 'Intern name and email are required.' });
+    }
+
+    const existingEmail = await prisma.intern.findUnique({ where: { email } });
+    if (existingEmail) {
+      return res.status(400).json({ error: `An intern with email "${email}" already exists.` });
+    }
+
+    if (projectId) {
+      const proj = await prisma.project.findUnique({ where: { id: projectId } });
+      if (!proj) return res.status(404).json({ error: 'Project not found.' });
+    }
+
+    if (teamId) {
+      const team = await prisma.team.findUnique({ where: { id: teamId } });
+      if (!team) return res.status(404).json({ error: 'Team not found.' });
+    }
 
     const totalInterns = await prisma.intern.count();
     const internId = `INT-${1000 + totalInterns + 1}`;
@@ -191,7 +267,7 @@ export async function createIntern(req: Request, res: Response) {
       },
     });
 
-    await logAudit('Intern', intern.id, 'CREATE', 'Admin', null, intern);
+    await logAudit('Intern', intern.id, 'CREATE', req.user?.name || 'Admin', null, intern);
     return res.status(201).json({ intern });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to create intern' });
@@ -199,22 +275,56 @@ export async function createIntern(req: Request, res: Response) {
 }
 
 // PUT /api/interns/:id - Update intern profile & performance ratings
-export async function updateIntern(req: Request, res: Response) {
+export async function updateIntern(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
-    const oldIntern = await prisma.intern.findUnique({ where: { id } });
+    const user = req.user;
 
-    if (!oldIntern) return res.status(404).json({ error: 'Intern not found' });
+    const conditions: any[] = [{ id }];
+    if (user?.role === 'TEAM_LEAD') {
+      conditions.push({
+        OR: [
+          ...(user.teamId ? [{ teamId: user.teamId }] : []),
+          { project: { projectLead: user.name } },
+        ],
+      });
+    }
+
+    const oldIntern = await prisma.intern.findFirst({
+      where: { AND: conditions },
+      include: { project: true },
+    });
+
+    if (!oldIntern) {
+      return res.status(404).json({ error: 'Intern not found or access denied.' });
+    }
+
+    // Validate that TEAM_LEAD cannot reassign intern to another team outside their scope
+    if (user?.role === 'TEAM_LEAD') {
+      if (req.body.teamId && user.teamId && req.body.teamId !== user.teamId) {
+        return res.status(403).json({ error: 'Forbidden: You cannot reassign an intern to another team.' });
+      }
+    }
+
+    // Validate foreign keys if provided
+    if (req.body.projectId) {
+      const proj = await prisma.project.findUnique({ where: { id: req.body.projectId } });
+      if (!proj) return res.status(404).json({ error: 'Project not found' });
+    }
+    if (req.body.teamId) {
+      const team = await prisma.team.findUnique({ where: { id: req.body.teamId } });
+      if (!team) return res.status(404).json({ error: 'Team not found' });
+    }
 
     const intern = await prisma.intern.update({
-      where: { id },
+      where: { id: oldIntern.id },
       data: {
         ...req.body,
         lastUpdated: new Date(),
       },
     });
 
-    await logAudit('Intern', id, 'UPDATE', 'Admin', oldIntern, intern);
+    await logAudit('Intern', oldIntern.id, 'UPDATE', user?.name || 'Admin', oldIntern, intern);
     return res.json({ intern });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to update intern' });

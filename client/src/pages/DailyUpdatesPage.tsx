@@ -35,11 +35,7 @@ export const DailyUpdatesPage: React.FC = () => {
     }
   };
 
-  const displayedUpdates = currentRole === 'INTERN'
-    ? updates.filter((u) => u.intern?.name?.toLowerCase().includes('rahul') || u.intern?.email === currentUser.email)
-    : currentRole === 'TEAM_LEAD'
-    ? updates.filter((u) => u.intern?.project?.name === 'GLC AI Lead Intelligence' || (u.intern as any)?.project?.projectLead?.toLowerCase().includes('vikram') || u.intern?.name === 'Rahul Kumar')
-    : updates;
+  const displayedUpdates = updates;
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -207,8 +203,8 @@ export const DailyUpdatesPage: React.FC = () => {
             >
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <div>
-                  <span className="font-bold text-slate-900">{update.intern?.name || 'Rahul Kumar'}</span>
-                  <span className="text-slate-500 text-[11px] ml-2">({update.intern?.project?.name || 'GLC AI Lead Intelligence'})</span>
+                  <span className="font-bold text-slate-900">{update.intern?.name || 'Intern'}</span>
+                  <span className="text-slate-500 text-[11px] ml-2">({update.intern?.project?.name || 'Assigned Project'})</span>
                 </div>
                 <span className="text-[10px] text-slate-400 font-mono">
                   {update.date ? new Date(update.date).toLocaleString() : 'Today'}

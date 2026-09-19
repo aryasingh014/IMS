@@ -1,8 +1,9 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prisma } from '../db.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
-// GET /api/audit-logs - System change history
-export async function getAuditLogs(req: Request, res: Response) {
+// GET /api/audit-logs - System change history (ADMIN only)
+export async function getAuditLogs(req: AuthenticatedRequest, res: Response) {
   try {
     const logs = await prisma.auditLog.findMany({
       take: 50,

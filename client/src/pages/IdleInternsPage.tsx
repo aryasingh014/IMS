@@ -25,11 +25,7 @@ export const IdleInternsPage: React.FC = () => {
     }
   };
 
-  const displayedIdleInterns = currentRole === 'INTERN'
-    ? idleInterns.filter((i) => i.name?.toLowerCase().includes('rahul') || i.email === currentUser.email)
-    : currentRole === 'TEAM_LEAD'
-    ? idleInterns.filter((i) => i.project?.name === 'GLC AI Lead Intelligence' || (i.project as any)?.projectLead?.toLowerCase().includes('vikram') || i.name === 'Rahul Kumar')
-    : idleInterns;
+  const displayedIdleInterns = idleInterns;
 
   if (loading) {
     return <div className="text-xs text-slate-500 p-6">Detecting Idle Interns...</div>;

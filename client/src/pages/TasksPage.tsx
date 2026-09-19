@@ -28,11 +28,7 @@ export const TasksPage: React.FC = () => {
     }
   };
 
-  const displayedTasks = currentRole === 'INTERN'
-    ? tasks.filter((t) => t.intern?.name?.toLowerCase().includes('rahul') || t.intern?.email === currentUser.email)
-    : currentRole === 'TEAM_LEAD'
-    ? tasks.filter((t) => t.project?.name === 'GLC AI Lead Intelligence' || (t.project as any)?.projectLead?.toLowerCase().includes('vikram') || (t.intern as any)?.project?.name === 'GLC AI Lead Intelligence')
-    : tasks;
+  const displayedTasks = tasks;
 
 
 
@@ -164,7 +160,7 @@ export const TasksPage: React.FC = () => {
                           <span className="font-bold text-slate-800">{task.progress}%</span>
                         </div>
                         <div className="text-[10px] text-slate-500 font-medium">
-                          <span>Assigned By: <strong className="text-slate-700">{task.assignedBy || task.project?.projectLead || task.reviewer || 'Vikram Malhotra'}</strong></span>
+                          <span>Assigned By: <strong className="text-slate-700">{task.assignedBy || task.project?.projectLead || task.reviewer || 'Lead'}</strong></span>
                         </div>
                         <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden mt-1">
                           <div className="bg-sky-500 h-full rounded-full" style={{ width: `${task.progress}%` }} />
@@ -210,7 +206,7 @@ export const TasksPage: React.FC = () => {
                 <tr key={task.id} className="hover:bg-slate-50">
                   <td className="p-4 font-semibold text-slate-900">{task.description}</td>
                   <td className="p-4 text-slate-700">{task.intern?.name}</td>
-                  <td className="p-4 font-semibold text-sky-800">{task.assignedBy || task.project?.projectLead || task.reviewer || 'Vikram Malhotra'}</td>
+                  <td className="p-4 font-semibold text-sky-800">{task.assignedBy || task.project?.projectLead || task.reviewer || 'Lead'}</td>
                   <td className="p-4 text-slate-600">{task.project?.name}</td>
                   <td className="p-4">
                     <span className="font-bold text-slate-800">{task.priority}</span>

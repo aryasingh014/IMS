@@ -1,18 +1,22 @@
-import { Request, Response } from 'express';
-import { exec } from 'child_process';
-import path from 'path';
+import { Response } from 'express';
+import { execSync } from 'child_process';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { logAudit } from '../services/auditService.js';
 
-// POST /api/demo-data/reset - Re-run database seed script
-export async function resetDemoData(req: Request, res: Response) {
+// POST /api/demo-data/reset - Re-run database seed script (ADMIN only)
+export async function resetDemoData(req: AuthenticatedRequest, res: Response) {
   try {
-    const cwd = process.cwd();
-    exec('npm run seed', { cwd }, (error, stdout, stderr) => {
-      if (error) {
-        console.error('Seed execution error:', error);
-        return res.status(500).json({ error: 'Failed to reset demo data: ' + error.message });
-      }
-      return res.json({ message: 'Demo data re-seeded successfully', output: stdout });
-    });
+    const user = req.user;
+    if (user?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden: Only system administrators can reset system data.' });
+    }
+
+    // ponytail: synchronous execution without verbose event listener plumbing
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const output = execSync(`${npmCmd} run seed`, { timeout: 60000, encoding: 'utf-8' });
+
+    await logAudit('System', 'Database', 'UPDATE', user.name, null, 'Database re-seeded');
+    return res.json({ message: 'Demo data re-seeded successfully', output });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to trigger demo data reset' });
   }

@@ -9,14 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "clsx": "^2.1.0",
     "lucide-react": "^0.344.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "recharts": "^2.12.2",
-    "tailwind-merge": "^2.2.1"
+    "recharts": "^2.12.2"
   },
   "devDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.63.3",
     "@types/node": "^20.11.24",
     "@types/react": "^18.2.61",
     "@types/react-dom": "^18.2.19",

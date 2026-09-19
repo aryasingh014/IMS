@@ -37,9 +37,7 @@ export const ProjectsPage: React.FC = () => {
     }
   };
 
-  const displayedProjects = currentRole === 'TEAM_LEAD'
-    ? projects.filter((p) => p.projectLead?.toLowerCase().includes('vikram') || p.projectLead === currentUser.name)
-    : projects;
+  const displayedProjects = projects;
 
   if (loading) {
     return <div className="text-xs text-slate-500 p-6">Loading Projects Grid...</div>;

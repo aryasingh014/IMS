@@ -1,11 +1,31 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prisma } from '../db.js';
 import { logAudit } from '../services/auditService.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
-// GET /api/teams - List all teams with leads and intern workload
-export async function getTeams(req: Request, res: Response) {
+// GET /api/teams - List teams (scoped by role)
+export async function getTeams(req: AuthenticatedRequest, res: Response) {
   try {
+    const user = req.user;
+    let whereClause: any = {};
+
+    if (user?.role === 'TEAM_LEAD') {
+      whereClause = {
+        OR: [
+          { leadName: user.name },
+          ...(user.teamId ? [{ id: user.teamId }] : []),
+        ],
+      };
+    } else if (user?.role === 'INTERN') {
+      whereClause = {
+        interns: {
+          some: user.internId ? { id: user.internId } : { email: user.email },
+        },
+      };
+    }
+
     const teams = await prisma.team.findMany({
+      where: whereClause,
       include: {
         interns: {
           select: {
@@ -43,8 +63,8 @@ export async function getTeams(req: Request, res: Response) {
   }
 }
 
-// POST /api/teams - Create team
-export async function createTeam(req: Request, res: Response) {
+// POST /api/teams - Create team (ADMIN only)
+export async function createTeam(req: AuthenticatedRequest, res: Response) {
   try {
     const { name, leadName, description } = req.body;
 
@@ -52,7 +72,7 @@ export async function createTeam(req: Request, res: Response) {
       data: { name, leadName, description },
     });
 
-    await logAudit('Team', team.id, 'CREATE', 'Admin', null, team);
+    await logAudit('Team', team.id, 'CREATE', req.user?.name || 'Admin', null, team);
     return res.status(201).json({ team });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to create team' });

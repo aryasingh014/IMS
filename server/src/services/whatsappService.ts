@@ -18,119 +18,60 @@ export interface ExtractedUpdateData {
   confidence: number;
 }
 
-// Interface for WhatsAppProvider abstraction as specified in requirements
-export interface WhatsAppProvider {
-  getMessages(): Promise<WhatsAppMessageDTO[]>;
-  sendMessage(to: string, text: string): Promise<boolean>;
-  getGroups(): Promise<Array<{ id: string; name: string }>>;
-  getGroupMessages(groupId: string): Promise<WhatsAppMessageDTO[]>;
-}
+// ponytail: pure function for whatsapp message parsing without unused classes or provider interfaces
+export function parseWhatsAppMessage(message: string): ExtractedUpdateData {
+  const trimmed = message.trim();
+  const parts = trimmed.split('-').map((s) => s.trim());
 
-// Interface for MessageParser
-export interface MessageParser {
-  parse(message: string): ExtractedUpdateData;
-}
+  let internName = parts[0] || undefined;
+  let taskDescription: string | undefined;
+  let status: string | undefined;
+  let progress: number | undefined;
+  let blocker: string | undefined;
 
-// 1. RuleBasedParser implementation
-export class RuleBasedParser implements MessageParser {
-  parse(message: string): ExtractedUpdateData {
-    const trimmed = message.trim();
-    let confidence = 0.85;
-
-    // Split pattern: "Name - action/task - status/progress"
-    const parts = trimmed.split('-').map((s) => s.trim());
-
-    let internName: string | undefined = undefined;
-    let taskDescription: string | undefined = undefined;
-    let status: string | undefined = undefined;
-    let progress: number | undefined = undefined;
-    let blocker: string | undefined = undefined;
-
-    if (parts.length >= 1) {
-      internName = parts[0];
+  if (parts.length >= 2) {
+    const middle = parts[1].toLowerCase();
+    if (middle.includes('blocked')) {
+      status = 'Blocked';
+      blocker = parts[1].replace(/blocked on/i, '').trim();
+    } else if (middle.includes('completed') || middle.includes('done')) {
+      status = 'Completed';
+      progress = 100;
+      taskDescription = parts[1];
+    } else {
+      taskDescription = parts[1];
+      status = 'Working';
     }
-
-    if (parts.length >= 2) {
-      const middle = parts[1].toLowerCase();
-      if (middle.includes('blocked')) {
-        status = 'Blocked';
-        blocker = parts[1].replace(/blocked on/i, '').trim();
-      } else if (middle.includes('completed') || middle.includes('done')) {
-        status = 'Completed';
-        progress = 100;
-        taskDescription = parts[1];
-      } else {
-        taskDescription = parts[1];
-        status = 'Working';
-      }
-    }
-
-    if (parts.length >= 3) {
-      const last = parts[2].trim();
-      const matchPct = last.match(/(\d+)%/);
-      if (matchPct) {
-        progress = parseInt(matchPct[1], 10);
-      } else if (last.toLowerCase().includes('block')) {
-        status = 'Blocked';
-        blocker = last;
-      }
-    }
-
-    // Default fallback parsing
-    if (!status) {
-      if (trimmed.toLowerCase().includes('blocked')) status = 'Blocked';
-      else if (trimmed.toLowerCase().includes('done')) {
-        status = 'Completed';
-        progress = 100;
-      } else status = 'Working';
-    }
-
-    return {
-      internName,
-      taskDescription: taskDescription || trimmed,
-      status,
-      progress,
-      blocker,
-      confidence,
-    };
   }
+
+  if (parts.length >= 3) {
+    const last = parts[2].trim();
+    const matchPct = last.match(/(\d+)%/);
+    if (matchPct) {
+      progress = parseInt(matchPct[1], 10);
+    } else if (last.toLowerCase().includes('block')) {
+      status = 'Blocked';
+      blocker = last;
+    }
+  }
+
+  if (!status) {
+    if (trimmed.toLowerCase().includes('blocked')) status = 'Blocked';
+    else if (trimmed.toLowerCase().includes('done')) {
+      status = 'Completed';
+      progress = 100;
+    } else status = 'Working';
+  }
+
+  return {
+    internName,
+    taskDescription: taskDescription || trimmed,
+    status,
+    progress,
+    blocker,
+    confidence: 0.85,
+  };
 }
-
-// 2. Simulated WhatsApp Provider implementation
-export class MockWhatsAppProvider implements WhatsAppProvider {
-  async getMessages(): Promise<WhatsAppMessageDTO[]> {
-    const messages = await prisma.whatsAppMessage.findMany({
-      where: { approvalStatus: 'Pending' },
-      orderBy: { receivedAt: 'desc' },
-    });
-
-    return messages.map((m) => ({
-      id: m.id,
-      senderPhone: m.senderPhone,
-      senderName: m.senderName || 'Unknown',
-      rawMessage: m.rawMessage,
-      receivedAt: m.receivedAt,
-    }));
-  }
-
-  async sendMessage(to: string, text: string): Promise<boolean> {
-    console.log(`[WhatsApp API Mock] Sending message to ${to}: ${text}`);
-    return true;
-  }
-
-  async getGroups(): Promise<Array<{ id: string; name: string }>> {
-    return [
-      { id: 'grp_01', name: 'Intern Updates 2026' },
-      { id: 'grp_02', name: 'GLC Lead Gen Team' },
-    ];
-  }
-
-  async getGroupMessages(groupId: string): Promise<WhatsAppMessageDTO[]> {
-    return this.getMessages();
-  }
-}
-
-const parser = new RuleBasedParser();
 
 // Process incoming raw WhatsApp text message into Pending update queue
 export async function processIncomingWhatsAppMessage(
@@ -138,7 +79,7 @@ export async function processIncomingWhatsAppMessage(
   rawMessage: string,
   senderName?: string
 ) {
-  const extracted = parser.parse(rawMessage);
+  const extracted = parseWhatsAppMessage(rawMessage);
 
   // Match intern by phone or parsed name
   let intern = null;

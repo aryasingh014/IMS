@@ -26,9 +26,7 @@ export const FTEvaluationPage: React.FC = () => {
     }
   };
 
-  const displayedEvaluations = currentRole === 'TEAM_LEAD'
-    ? evaluations.filter((ev) => ev.project?.name === 'GLC AI Lead Intelligence' || ev.intern?.project?.name === 'GLC AI Lead Intelligence' || ev.name?.toLowerCase().includes('rahul') || ev.intern?.name?.toLowerCase().includes('rahul'))
-    : evaluations;
+  const displayedEvaluations = evaluations;
 
   if (loading) {
     return <div className="text-xs text-slate-500 p-6">Loading FTE Candidates Pipeline...</div>;

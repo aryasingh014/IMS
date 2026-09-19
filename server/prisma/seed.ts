@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { hashPassword } from '../src/utils/passwordUtils.js';
 
 const prisma = new PrismaClient();
 
@@ -26,7 +27,7 @@ async function main() {
     data: {
       email: 'admin@company.com',
       name: 'Arya Singh (Admin)',
-      password: 'adminpassword123',
+      password: hashPassword('adminpassword123'),
       role: 'ADMIN',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     },
@@ -52,7 +53,7 @@ async function main() {
       data: {
         email: leadEmail,
         name: t.leadName,
-        password: 'leadpassword123',
+        password: hashPassword('leadpassword123'),
         role: 'TEAM_LEAD',
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
       },
@@ -164,7 +165,7 @@ async function main() {
       data: {
         email: data.email,
         name: data.name,
-        password: 'internpassword123',
+        password: hashPassword('internpassword123'),
         role: 'INTERN',
         internId: intern.id,
         avatar: `https://images.unsplash.com/photo-${1500000000000 + i}?w=150`,

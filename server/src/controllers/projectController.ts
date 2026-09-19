@@ -1,11 +1,32 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prisma } from '../db.js';
 import { logAudit } from '../services/auditService.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
-// GET /api/projects - All projects with statistics
-export async function getProjects(req: Request, res: Response) {
+// GET /api/projects - All projects with statistics (scoped by role)
+export async function getProjects(req: AuthenticatedRequest, res: Response) {
   try {
+    const user = req.user;
+    let whereClause: any = {};
+
+    // ponytail: harmonize TEAM_LEAD scope with team member project assignments
+    if (user?.role === 'TEAM_LEAD') {
+      whereClause = {
+        OR: [
+          { projectLead: user.name },
+          ...(user.teamId ? [{ interns: { some: { teamId: user.teamId } } }] : []),
+        ],
+      };
+    } else if (user?.role === 'INTERN') {
+      whereClause = {
+        interns: {
+          some: user.internId ? { id: user.internId } : { email: user.email },
+        },
+      };
+    }
+
     const projects = await prisma.project.findMany({
+      where: whereClause,
       include: {
         interns: {
           select: {
@@ -13,6 +34,7 @@ export async function getProjects(req: Request, res: Response) {
             name: true,
             status: true,
             ftPotential: true,
+            teamId: true,
           },
         },
         tasks: {
@@ -61,9 +83,10 @@ export async function getProjects(req: Request, res: Response) {
 }
 
 // GET /api/projects/:id - Detailed project page
-export async function getProjectById(req: Request, res: Response) {
+export async function getProjectById(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
+    const user = req.user;
 
     const project = await prisma.project.findUnique({
       where: { id },
@@ -86,14 +109,28 @@ export async function getProjectById(req: Request, res: Response) {
 
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
+    if (user?.role === 'TEAM_LEAD') {
+      const isLeadOrTeamInvolved = project.projectLead === user.name || (user.teamId && project.interns.some((i) => i.teamId === user.teamId));
+      if (!isLeadOrTeamInvolved) {
+        return res.status(403).json({ error: 'Forbidden: You do not lead this project or have team members assigned to it.' });
+      }
+    }
+
+    if (user?.role === 'INTERN') {
+      const isAssigned = project.interns.some((i) => i.id === user.internId || i.email === user.email);
+      if (!isAssigned) {
+        return res.status(403).json({ error: 'Forbidden: You are not assigned to this project.' });
+      }
+    }
+
     return res.json({ project });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to fetch project detail' });
   }
 }
 
-// POST /api/projects - Create project
-export async function createProject(req: Request, res: Response) {
+// POST /api/projects - Create project (ADMIN only)
+export async function createProject(req: AuthenticatedRequest, res: Response) {
   try {
     const { name, projectLead, description, targetCompletion } = req.body;
 
@@ -106,25 +143,27 @@ export async function createProject(req: Request, res: Response) {
       },
     });
 
-    await logAudit('Project', project.id, 'CREATE', 'Admin', null, project);
+    await logAudit('Project', project.id, 'CREATE', req.user?.name || 'Admin', null, project);
     return res.status(201).json({ project });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to create project' });
   }
 }
 
-// PUT /api/projects/:id - Update project
-export async function updateProject(req: Request, res: Response) {
+// PUT /api/projects/:id - Update project (ADMIN only)
+export async function updateProject(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
     const oldVal = await prisma.project.findUnique({ where: { id } });
+
+    if (!oldVal) return res.status(404).json({ error: 'Project not found' });
 
     const project = await prisma.project.update({
       where: { id },
       data: req.body,
     });
 
-    await logAudit('Project', id, 'UPDATE', 'Admin', oldVal, project);
+    await logAudit('Project', id, 'UPDATE', req.user?.name || 'Admin', oldVal, project);
     return res.json({ project });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to update project' });

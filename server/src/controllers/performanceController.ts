@@ -1,18 +1,33 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { prisma } from '../db.js';
 import { logAudit } from '../services/auditService.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
-// GET /api/performance - Performance indicators matrix for all interns
-export async function getPerformanceOverview(req: Request, res: Response) {
+// GET /api/performance - Performance indicators matrix (scoped by role)
+export async function getPerformanceOverview(req: AuthenticatedRequest, res: Response) {
   try {
+    const user = req.user;
+    let whereClause: any = {};
+
+    if (user?.role === 'INTERN') {
+      whereClause = user.internId ? { id: user.internId } : { email: user.email };
+    } else if (user?.role === 'TEAM_LEAD') {
+      whereClause = {
+        OR: [
+          { project: { projectLead: user.name } },
+          ...(user.teamId ? [{ teamId: user.teamId }] : []),
+        ],
+      };
+    }
+
     const interns = await prisma.intern.findMany({
+      where: whereClause,
       include: {
         project: { select: { name: true } },
         team: { select: { name: true, leadName: true } },
         tasks: {
           select: { status: true },
         },
-
         dailyUpdates: { take: 5, orderBy: { date: 'desc' } },
         performanceReviews: { take: 1, orderBy: { reviewDate: 'desc' } },
       },
@@ -54,8 +69,13 @@ export async function getPerformanceOverview(req: Request, res: Response) {
 }
 
 // POST /api/performance/review - Submit/update performance review ratings for an intern
-export async function submitPerformanceReview(req: Request, res: Response) {
+export async function submitPerformanceReview(req: AuthenticatedRequest, res: Response) {
   try {
+    const user = req.user;
+    if (user?.role === 'INTERN') {
+      return res.status(403).json({ error: 'Forbidden: Interns cannot submit performance evaluations.' });
+    }
+
     const {
       internId,
       learningSpeed,
@@ -69,8 +89,18 @@ export async function submitPerformanceReview(req: Request, res: Response) {
       reviewedBy,
     } = req.body;
 
-    const oldIntern = await prisma.intern.findUnique({ where: { id: internId } });
+    const oldIntern = await prisma.intern.findUnique({
+      where: { id: internId },
+      include: { project: true },
+    });
     if (!oldIntern) return res.status(404).json({ error: 'Intern not found' });
+
+    if (user?.role === 'TEAM_LEAD') {
+      const isLead = (user.teamId && oldIntern.teamId === user.teamId) || (oldIntern.project?.projectLead === user.name);
+      if (!isLead) {
+        return res.status(403).json({ error: 'Forbidden: You can only review interns on your assigned team.' });
+      }
+    }
 
     // Update intern current rating metrics
     const updatedIntern = await prisma.intern.update({
@@ -100,12 +130,12 @@ export async function submitPerformanceReview(req: Request, res: Response) {
         communication: updatedIntern.communication,
         problemSolving: updatedIntern.problemSolving,
         evidenceNotes: evidenceNotes || null,
-        reviewedBy: reviewedBy || 'Admin',
+        reviewedBy: reviewedBy || user?.name || 'Admin',
         reviewDate: new Date(),
       },
     });
 
-    await logAudit('PerformanceReview', review.id, 'CREATE', 'Admin', oldIntern, updatedIntern);
+    await logAudit('PerformanceReview', review.id, 'CREATE', user?.name || 'Admin', oldIntern, updatedIntern);
     return res.status(201).json({ review, intern: updatedIntern });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to submit performance review' });

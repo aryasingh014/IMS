@@ -51,9 +51,7 @@ export const InternsPage: React.FC = () => {
     }
   };
 
-  const displayedInterns = currentRole === 'TEAM_LEAD'
-    ? interns.filter((i) => i.project?.name === 'GLC AI Lead Intelligence' || (i.project as any)?.projectLead?.toLowerCase().includes('vikram'))
-    : interns;
+  const displayedInterns = interns;
 
   return (
     <div className="space-y-6 pb-10">

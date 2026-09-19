@@ -5,7 +5,7 @@ import { api } from '../../services/api';
 import { Intern, Project } from '../../types';
 
 export const QuickActionModal: React.FC = () => {
-  const { isQuickActionOpen, setIsQuickActionOpen, refreshSummary, showToast } = useApp();
+  const { isQuickActionOpen, setIsQuickActionOpen, refreshSummary, showToast, currentRole } = useApp();
 
   const [activeForm, setActiveForm] = useState<'task' | 'intern' | 'project' | 'update'>('task');
   const [interns, setInterns] = useState<Intern[]>([]);
@@ -45,6 +45,14 @@ export const QuickActionModal: React.FC = () => {
     completedToday: '',
     blocker: '',
   });
+
+  useEffect(() => {
+    if (currentRole === 'INTERN') {
+      setActiveForm('update');
+    } else {
+      setActiveForm('task');
+    }
+  }, [currentRole, isQuickActionOpen]);
 
   useEffect(() => {
     if (isQuickActionOpen) {
@@ -164,30 +172,36 @@ export const QuickActionModal: React.FC = () => {
 
         {/* Tab Selection */}
         <div className="flex border-b border-slate-200 bg-slate-50/50 p-1 text-xs">
-          <button
-            onClick={() => setActiveForm('task')}
-            className={`flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-1.5 ${
-              activeForm === 'task' ? 'bg-sky-50 text-sky-700 font-semibold border border-sky-200' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CheckSquare className="w-4 h-4" /> Assign Task
-          </button>
-          <button
-            onClick={() => setActiveForm('intern')}
-            className={`flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-1.5 ${
-              activeForm === 'intern' ? 'bg-sky-50 text-sky-700 font-semibold border border-sky-200' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <UserPlus className="w-4 h-4" /> Add Intern
-          </button>
-          <button
-            onClick={() => setActiveForm('project')}
-            className={`flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-1.5 ${
-              activeForm === 'project' ? 'bg-sky-50 text-sky-700 font-semibold border border-sky-200' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <FolderPlus className="w-4 h-4" /> Add Project
-          </button>
+          {currentRole !== 'INTERN' && (
+            <button
+              onClick={() => setActiveForm('task')}
+              className={`flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-1.5 ${
+                activeForm === 'task' ? 'bg-sky-50 text-sky-700 font-semibold border border-sky-200' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <CheckSquare className="w-4 h-4" /> Assign Task
+            </button>
+          )}
+          {currentRole === 'ADMIN' && (
+            <>
+              <button
+                onClick={() => setActiveForm('intern')}
+                className={`flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-1.5 ${
+                  activeForm === 'intern' ? 'bg-sky-50 text-sky-700 font-semibold border border-sky-200' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" /> Add Intern
+              </button>
+              <button
+                onClick={() => setActiveForm('project')}
+                className={`flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-1.5 ${
+                  activeForm === 'project' ? 'bg-sky-50 text-sky-700 font-semibold border border-sky-200' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FolderPlus className="w-4 h-4" /> Add Project
+              </button>
+            </>
+          )}
           <button
             onClick={() => setActiveForm('update')}
             className={`flex-1 py-2 rounded-lg font-medium flex items-center justify-center gap-1.5 ${

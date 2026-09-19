@@ -236,29 +236,8 @@ export const DashboardPage: React.FC = () => {
 
 
 
-  const filterByLeadSquad = (list?: any[]) => {
-    if (!list) return [];
-    if (currentRole !== 'TEAM_LEAD') return list;
-    return list.filter((item: any) =>
-      item.project?.name === 'GLC AI Lead Intelligence' ||
-      item.project?.projectLead?.toLowerCase().includes('vikram') ||
-      item.intern?.project?.name === 'GLC AI Lead Intelligence' ||
-      item.name === 'Rahul Kumar' ||
-      item.internName === 'Rahul Kumar'
-    );
-  };
-
-  const scopedStatusBoard = {
-    WORKING: filterByLeadSquad(statusBoard.WORKING),
-    BLOCKED: filterByLeadSquad(statusBoard.BLOCKED),
-    NO_TASK: filterByLeadSquad(statusBoard.NO_TASK),
-    WAITING_REVIEW: filterByLeadSquad(statusBoard.WAITING_REVIEW),
-    COMPLETED: filterByLeadSquad(statusBoard.COMPLETED),
-  };
-
-  const displayedProjectSummary = currentRole === 'TEAM_LEAD'
-    ? projectSummary.filter((p) => p.name === 'GLC AI Lead Intelligence' || p.projectLead?.toLowerCase().includes('vikram'))
-    : projectSummary;
+  const scopedStatusBoard = statusBoard;
+  const displayedProjectSummary = projectSummary;
 
   return (
 

@@ -12,12 +12,31 @@ import {
 
 const API_BASE = '/api';
 
+let authToken: string | null = localStorage.getItem('ims_auth_token');
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+  if (token) {
+    localStorage.setItem('ims_auth_token', token);
+  } else {
+    localStorage.removeItem('ims_auth_token');
+  }
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    ...(options?.headers as Record<string, string> || {}),
+  };
+
   const res = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
     ...options,
+    headers,
   });
 
   if (!res.ok) {
@@ -28,142 +47,61 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+// ponytail: concise verb helpers replacing repetitive fetchJSON wrappers
+const get = <T>(path: string) => fetchJSON<T>(`${API_BASE}${path}`);
+const post = <T>(path: string, body?: any) =>
+  fetchJSON<T>(`${API_BASE}${path}`, { method: 'POST', body: body ? JSON.stringify(body) : undefined });
+const put = <T>(path: string, body?: any) =>
+  fetchJSON<T>(`${API_BASE}${path}`, { method: 'PUT', body: body ? JSON.stringify(body) : undefined });
+const qs = (p?: Record<string, string>) => (p && Object.keys(p).length ? `?${new URLSearchParams(p)}` : '');
+
 export const api = {
-  // Auth
   login: (credentials: { email: string; password: string }) =>
-    fetchJSON<{ token: string; user: any }>(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    }),
+    post<{ token: string; user: any }>('/auth/login', credentials),
 
-  // Dashboard
-  getDashboardSummary: () => fetchJSON<DashboardSummary>(`${API_BASE}/dashboard/summary`),
+  getDashboardSummary: () => get<DashboardSummary>('/dashboard/summary'),
 
-  // Interns
-  getInterns: (params?: Record<string, string>) => {
-    const query = new URLSearchParams(params).toString();
-    return fetchJSON<{ interns: Intern[] }>(`${API_BASE}/interns${query ? `?${query}` : ''}`);
-  },
-  getIdleInterns: () => fetchJSON<{ idleInterns: Intern[] }>(`${API_BASE}/interns/idle`),
-  getInternById: (id: string) =>
-    fetchJSON<{ intern: Intern; timeline: any[] }>(`${API_BASE}/interns/${id}`),
-  createIntern: (data: Partial<Intern>) =>
-    fetchJSON<{ intern: Intern }>(`${API_BASE}/interns`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  updateIntern: (id: string, data: Partial<Intern>) =>
-    fetchJSON<{ intern: Intern }>(`${API_BASE}/interns/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  getInterns: (p?: Record<string, string>) => get<{ interns: Intern[] }>(`/interns${qs(p)}`),
+  getIdleInterns: () => get<{ idleInterns: Intern[] }>('/interns/idle'),
+  getInternById: (id: string) => get<{ intern: Intern; timeline: any[] }>(`/interns/${id}`),
+  createIntern: (data: Partial<Intern>) => post<{ intern: Intern }>('/interns', data),
+  updateIntern: (id: string, data: Partial<Intern>) => put<{ intern: Intern }>(`/interns/${id}`, data),
 
-  // Projects
-  getProjects: () => fetchJSON<{ projects: Project[] }>(`${API_BASE}/projects`),
-  getProjectById: (id: string) => fetchJSON<{ project: Project }>(`${API_BASE}/projects/${id}`),
-  createProject: (data: Partial<Project>) =>
-    fetchJSON<{ project: Project }>(`${API_BASE}/projects`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  updateProject: (id: string, data: Partial<Project>) =>
-    fetchJSON<{ project: Project }>(`${API_BASE}/projects/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  getProjects: () => get<{ projects: Project[] }>('/projects'),
+  getProjectById: (id: string) => get<{ project: Project }>(`/projects/${id}`),
+  createProject: (data: Partial<Project>) => post<{ project: Project }>('/projects', data),
+  updateProject: (id: string, data: Partial<Project>) => put<{ project: Project }>(`/projects/${id}`, data),
 
-  // Tasks
-  getTasks: (params?: Record<string, string>) => {
-    const query = new URLSearchParams(params).toString();
-    return fetchJSON<{ tasks: Task[] }>(`${API_BASE}/tasks${query ? `?${query}` : ''}`);
-  },
-  createTask: (data: Partial<Task>) =>
-    fetchJSON<{ task: Task }>(`${API_BASE}/tasks`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  updateTask: (id: string, data: Partial<Task>) =>
-    fetchJSON<{ task: Task }>(`${API_BASE}/tasks/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+  getTasks: (p?: Record<string, string>) => get<{ tasks: Task[] }>(`/tasks${qs(p)}`),
+  createTask: (data: Partial<Task>) => post<{ task: Task }>('/tasks', data),
+  updateTask: (id: string, data: Partial<Task>) => put<{ task: Task }>(`/tasks/${id}`, data),
 
-  // Daily Updates
-  getDailyUpdates: (params?: Record<string, string>) => {
-    const query = new URLSearchParams(params).toString();
-    return fetchJSON<{ updates: DailyUpdate[] }>(`${API_BASE}/updates${query ? `?${query}` : ''}`);
-  },
-  submitDailyUpdate: (data: Partial<DailyUpdate>) =>
-    fetchJSON<{ update: DailyUpdate }>(`${API_BASE}/updates`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  getDailyUpdates: (p?: Record<string, string>) => get<{ updates: DailyUpdate[] }>(`/updates${qs(p)}`),
+  submitDailyUpdate: (data: Partial<DailyUpdate>) => post<{ update: DailyUpdate }>('/updates', data),
 
-  // Blockers
-  getBlockers: (status?: string) =>
-    fetchJSON<{ blockers: Blocker[] }>(`${API_BASE}/blockers${status ? `?status=${status}` : ''}`),
-  createBlocker: (data: Partial<Blocker>) =>
-    fetchJSON<{ blocker: Blocker }>(`${API_BASE}/blockers`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  resolveBlocker: (id: string) =>
-    fetchJSON<{ blocker: Blocker }>(`${API_BASE}/blockers/${id}/resolve`, {
-      method: 'PUT',
-    }),
+  getBlockers: (status?: string) => get<{ blockers: Blocker[] }>(`/blockers${status ? `?status=${status}` : ''}`),
+  createBlocker: (data: Partial<Blocker>) => post<{ blocker: Blocker }>('/blockers', data),
+  resolveBlocker: (id: string) => put<{ blocker: Blocker }>(`/blockers/${id}/resolve`),
 
-  // Performance
-  getPerformanceOverview: () => fetchJSON<{ performance: any[] }>(`${API_BASE}/performance`),
-  submitPerformanceReview: (data: any) =>
-    fetchJSON<{ review: any; intern: Intern }>(`${API_BASE}/performance/review`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  getPerformanceOverview: () => get<{ performance: any[] }>('/performance'),
+  submitPerformanceReview: (data: any) => post<{ review: any; intern: Intern }>('/performance/review', data),
 
-  // FT Evaluation
-  getFTEvaluations: (level?: string) =>
-    fetchJSON<{ evaluations: Intern[] }>(`${API_BASE}/evaluations${level ? `?level=${level}` : ''}`),
-  createFTEvaluation: (data: any) =>
-    fetchJSON<{ evaluation: FTEvaluation }>(`${API_BASE}/evaluations`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  getFTEvaluations: (level?: string) => get<{ evaluations: Intern[] }>(`/evaluations${level ? `?level=${level}` : ''}`),
+  createFTEvaluation: (data: any) => post<{ evaluation: FTEvaluation }>('/evaluations', data),
 
-  // Teams
-  getTeams: () => fetchJSON<{ teams: any[] }>(`${API_BASE}/teams`),
+  getTeams: () => get<{ teams: any[] }>('/teams'),
 
-  // Google Sheets
-  getGoogleSheetConfig: () => fetchJSON<{ config: any; mapping: any; logs: any[] }>(`${API_BASE}/google-sheets/config`),
-  saveGoogleSheetConfig: (data: any) =>
-    fetchJSON<{ config: any; mapping: any }>(`${API_BASE}/google-sheets/config`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  syncGoogleSheets: (data?: any) =>
-    fetchJSON<{ success: boolean; result: any }>(`${API_BASE}/google-sheets/sync`, {
-      method: 'POST',
-      body: JSON.stringify(data || {}),
-    }),
+  getGoogleSheetConfig: () => get<{ config: any; mapping: any; logs: any[] }>('/google-sheets/config'),
+  saveGoogleSheetConfig: (data: any) => post<{ config: any; mapping: any }>('/google-sheets/config', data),
+  syncGoogleSheets: (data?: any) => post<{ success: boolean; result: any }>('/google-sheets/sync', data || {}),
 
-  // WhatsApp
-  getPendingWhatsAppUpdates: () => fetchJSON<{ pendingMessages: WhatsAppMessage[]; stats: any }>(`${API_BASE}/whatsapp/pending`),
-  approveWhatsAppUpdate: (id: string) =>
-    fetchJSON<{ success: boolean; intern: Intern }>(`${API_BASE}/whatsapp/approve/${id}`, {
-      method: 'POST',
-    }),
-  rejectWhatsAppUpdate: (id: string) =>
-    fetchJSON<{ success: boolean }>(`${API_BASE}/whatsapp/reject/${id}`, {
-      method: 'POST',
-    }),
+  getPendingWhatsAppUpdates: () => get<{ pendingMessages: WhatsAppMessage[]; stats: any }>('/whatsapp/pending'),
+  approveWhatsAppUpdate: (id: string) => post<{ success: boolean; intern: Intern }>(`/whatsapp/approve/${id}`),
+  rejectWhatsAppUpdate: (id: string) => post<{ success: boolean }>(`/whatsapp/reject/${id}`),
 
-  // Alerts & Audit
-  getAlerts: () => fetchJSON<{ alerts: AlertItem[] }>(`${API_BASE}/alerts`),
-  acknowledgeAlert: (id: string) =>
-    fetchJSON<{ alert: AlertItem }>(`${API_BASE}/alerts/${id}/acknowledge`, {
-      method: 'PUT',
-    }),
-  getAuditLogs: () => fetchJSON<{ logs: any[] }>(`${API_BASE}/audit-logs`),
+  getAlerts: () => get<{ alerts: AlertItem[] }>('/alerts'),
+  acknowledgeAlert: (id: string) => put<{ alert: AlertItem }>(`/alerts/${id}/acknowledge`),
+  getAuditLogs: () => get<{ logs: any[] }>('/audit-logs'),
 
-  // Demo Data Reset
-  resetDemoData: () => fetchJSON<{ message: string }>(`${API_BASE}/demo-data/reset`, { method: 'POST' }),
+  resetDemoData: () => post<{ message: string }>('/demo-data/reset'),
 };

@@ -1,16 +1,35 @@
 import { prisma } from '../db.js';
 
-export async function refreshAlerts() {
+// In-memory throttling cache to prevent redundant alert calculations on rapid dashboard loads
+const lastRefreshMap = new Map<string, number>();
+
+// ponytail: role-scoped throttled alert generation (max once every 30s per scope)
+export async function refreshAlerts(internWhere: any = {}) {
   try {
-    // Clear old unacknowledged auto-generated alerts to refresh
+    const scopeKey = JSON.stringify(internWhere || {});
+    const nowMs = Date.now();
+    const lastRefresh = lastRefreshMap.get(scopeKey) || 0;
+
+    // Skip regeneration if refreshed recently
+    if (nowMs - lastRefresh < 30000) {
+      return;
+    }
+    lastRefreshMap.set(scopeKey, nowMs);
+
+    const hasScope = internWhere && Object.keys(internWhere).length > 0;
+
     await prisma.alert.deleteMany({
-      where: { isAcknowledged: false },
+      where: {
+        isAcknowledged: false,
+        ...(hasScope ? { intern: internWhere } : {}),
+      },
     });
 
     const now = new Date();
 
-    // 1. Detect Idle Interns (No working/waiting task or no task at all)
+    // 1. Detect Idle, Blocked, and Missing Updates (scoped)
     const interns = await prisma.intern.findMany({
+      where: internWhere,
       include: {
         tasks: {
           where: { status: { in: ['Working', 'Waiting Review'] } },
@@ -73,9 +92,10 @@ export async function refreshAlerts() {
       }
     }
 
-    // 2. Overdue Tasks
+    // 2. Overdue Tasks (scoped)
     const overdueTasks = await prisma.task.findMany({
       where: {
+        ...(hasScope ? { intern: internWhere } : {}),
         status: { in: ['Working', 'Waiting Review', 'Not Started'] },
         deadline: { lt: now },
       },
