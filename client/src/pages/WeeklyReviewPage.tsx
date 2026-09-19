@@ -31,7 +31,12 @@ export const WeeklyReviewPage: React.FC = () => {
   const displayedReviews = reviews;
 
   if (currentRole === 'INTERN') {
-    const myPerformance = displayedReviews[0];
+    const myPerformance =
+      displayedReviews.find(
+        (p) =>
+          (currentUser.internId && (p.id === currentUser.internId || p.internId === currentUser.internId)) ||
+          (currentUser.email && p.email?.toLowerCase() === currentUser.email?.toLowerCase())
+      ) || displayedReviews[0];
 
     if (!myPerformance) {
       return (
@@ -43,11 +48,15 @@ export const WeeklyReviewPage: React.FC = () => {
           <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400 space-y-2">
             <Award className="w-8 h-8 mx-auto text-slate-300" />
             <p className="text-xs font-semibold text-slate-700">No performance review submitted yet</p>
-            <p className="text-xs text-slate-500">Your weekly scorecard will appear here once reviewed by your team lead.</p>
+            <p className="text-xs text-slate-500">Your weekly scorecard will appear here once evaluated by your team lead.</p>
           </div>
         </div>
       );
     }
+
+    const hasReceivedReview = Boolean(
+      myPerformance.performanceReviews && myPerformance.performanceReviews.length > 0
+    );
 
     const metrics = [
       { label: 'Learning Speed', score: myPerformance.learningSpeed || 3, max: 5 },
@@ -66,7 +75,7 @@ export const WeeklyReviewPage: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">My Weekly Performance Scorecard</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Your individual 7-axis evaluation ratings reviewed by your Team Lead.
+            Your individual 7-axis evaluation ratings reviewed weekly by your Team Lead.
           </p>
         </div>
 
@@ -83,7 +92,7 @@ export const WeeklyReviewPage: React.FC = () => {
                 {currentUser.title || 'Engineering Intern'}
               </span>
               <h3 className="text-2xl font-bold text-white mt-1">{myPerformance.name || currentUser.name}</h3>
-              <p className="text-xs text-sky-100">Project: <span className="font-semibold text-white">{myPerformance.projectName || 'Assigned Project'}</span></p>
+              <p className="text-xs text-sky-100">Project: <span className="font-semibold text-white">{myPerformance.projectName || 'Unassigned'}</span></p>
             </div>
           </div>
 
@@ -95,7 +104,7 @@ export const WeeklyReviewPage: React.FC = () => {
               <span className="text-xs font-normal text-sky-200">/ 5.0</span>
             </div>
             <span className="inline-block bg-emerald-400/30 text-emerald-100 text-[10px] px-2.5 py-0.5 rounded font-bold uppercase tracking-wider">
-              {Number(overallAvg) >= 4 ? 'TOP PERFORMER' : 'ACTIVE INTERN'}
+              {hasReceivedReview ? (Number(overallAvg) >= 4 ? 'TOP PERFORMER' : 'ACTIVE INTERN') : 'INITIAL BASELINE'}
             </span>
           </div>
         </div>
@@ -107,7 +116,9 @@ export const WeeklyReviewPage: React.FC = () => {
               <Zap className="w-5 h-5 text-sky-600" />
               <h3 className="text-sm font-bold text-slate-900">7 Core Indicator Breakdown</h3>
             </div>
-            <span className="text-xs text-slate-500 font-medium">Evaluated Weekly</span>
+            <span className="text-xs text-slate-500 font-medium">
+              {hasReceivedReview ? 'Evaluated by Team Lead' : 'Default Neutral Baseline (Pending Team Lead Evaluation)'}
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
